@@ -4,7 +4,7 @@ msg: .ascii "Hello World!\n"
 len = . - msg
 
 .text          /* start of the text (code) section */
-.global _start /* entry point */ 
+.global _start /* entry point */
 
 _start:
     mov     x0, #1
