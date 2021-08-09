@@ -16,7 +16,6 @@
 using namespace std;
 
 string run_vm() {
-    bool printRegs = false;
     int kvm, vmfd, vcpufd, ret;
     const uint32_t code[] = {
             0xd2800281, /* mov	x1, #0x14 */
@@ -61,8 +60,8 @@ string run_vm() {
     if (!mem)
         return "Error while allocating guest memory";
     memcpy(mem, code, sizeof(code));
+    printf("Size of code: %ld B\n", sizeof(code));
 
-    /* Map it to the second page frame (to avoid the real-mode IDT at 0). */
     struct kvm_userspace_memory_region region = {
             .slot = 0,
             .guest_phys_addr = 0x0000,
@@ -109,18 +108,41 @@ string run_vm() {
     if (ret == -1)
         return "System call 'KVM_GET_REG_LIST' failed";
     printf("Number of registers that can be set: %llu\n", list.n);
-    for (int i = 0; i < list.n && printRegs; i++) {
-        printf("%llu\n", list.reg[i]);
-    }
 
-    /* Set registers 
+    /* Read register PSTATE */
+    uint64_t val;
+    uint64_t *val_ptr = &val;
+    kvm_regs kvm_regs;
     struct kvm_one_reg reg {
-        .id = 0,
-        .addr = 0,
+        .id = kvm_regs.regs.pstate,
+        .addr = (uintptr_t)val_ptr,
     };
-    ret = ioctl(kvm, KVM_SET_ONE_REG, &reg);
-    if (ret == -1)
-        return "System call 'KVM_SET_ONE_REG' failed";*/
+    printf("Retrieving register PSTATE\n");
+    ret = ioctl(vcpufd, KVM_GET_ONE_REG, &reg);
+    if (ret == -1) {
+        return "System call 'KVM_GET_ONE_REG' failed";
+    }
+    printf("PSTATE: %ld\n", val);
+
+    /* Set register x2 to 42 and read it for verification */
+    uint64_t val2 = 42;
+    uint64_t *val2_ptr = &val2;
+    struct kvm_one_reg reg2 {
+        .id = kvm_regs.regs.regs[2],
+        .addr = (uintptr_t)val2_ptr,
+        };
+    printf("Setting register x2 to 42\n");
+    ret = ioctl(vcpufd, KVM_SET_ONE_REG, &reg2);
+    if (ret == -1) {
+        return "System call 'KVM_SET_ONE_REG' failed";
+    }
+    val2 = 0;
+    printf("Retrieving register x2\n");
+    ret = ioctl(vcpufd, KVM_GET_ONE_REG, &reg2);
+    if (ret == -1) {
+        return "System call 'KVM_GET_ONE_REG' failed";
+    }
+    printf("x2: %ld\n", val2);
 
     /* Repeatedly run code and handle VM exits. */
     printf("Running code\n");
@@ -154,7 +176,7 @@ string run_vm() {
 }
 
 int main() {
-    string res = run_vm();
-    printf("%s\n", res.c_str());
+    string result = run_vm();
+    printf("%s\n", result.c_str());
     return 0;
 }
