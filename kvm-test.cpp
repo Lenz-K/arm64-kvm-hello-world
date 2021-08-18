@@ -18,12 +18,21 @@ using namespace std;
 string run_vm() {
     int kvm, vmfd, vcpufd, ret;
     const uint32_t code[] = {
+            /* Add two registers */
             0xd2800281, /* mov	x1, #0x14 */
             0xd28002c2, /* mov	x2, #0x16 */
             0x8b020023, /* add	x3, x1, x2 */
-            0xd2800000, /* mov	x0, #0x0 */
-            0x52800ba8, /* mov	w8, #0x5d */
-            0xd4000001, /* svc	#0x0 */
+
+            /* Supervisor Call Exit */
+            //0xd2800000, /* mov x0, #0x0 */
+            //0x52800ba8, /* mov w8, #0x5d */
+            //0xd4000001, /* svc #0x0 */
+
+            /* Halt */
+            //0xd45e0000, /* hlt #0xf000 */
+
+            /* Wait for Interrupt */
+            0xd503207f, /* wfi */
     };
     uint8_t *mem;
     size_t mmap_size;
@@ -180,6 +189,15 @@ string run_vm() {
         }
         res += "\n";
     }
+
+    /* Read register PC */
+    printf("Retrieving register PC\n");
+    reg.id = kvm_regs.regs.pc;
+    ret = ioctl(vcpufd, KVM_GET_ONE_REG, &reg);
+    if (ret == -1) {
+        return "System call 'KVM_GET_ONE_REG' failed";
+    }
+    printf("PC: %ld\n", val);
 
     return res;
 }
