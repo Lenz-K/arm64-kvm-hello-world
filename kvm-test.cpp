@@ -124,6 +124,15 @@ string run_vm() {
     }
     printf("PSTATE: %ld\n", val);
 
+    /* Read register PC */
+    printf("Retrieving register PC\n");
+    reg.id = kvm_regs.regs.pc;
+    ret = ioctl(vcpufd, KVM_GET_ONE_REG, &reg);
+    if (ret == -1) {
+        return "System call 'KVM_GET_ONE_REG' failed";
+    }
+    printf("PC: %ld\n", val);
+
     /* Set register x2 to 42 and read it for verification */
     uint64_t val2 = 42;
     uint64_t *val2_ptr = &val2;
