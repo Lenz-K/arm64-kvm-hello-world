@@ -15,8 +15,41 @@
 
 using namespace std;
 
-string run_vm() {
-    int kvm, vmfd, vcpufd, ret;
+int kvm, vmfd, vcpufd;
+
+int ioctl_exit_on_error(int file_descriptor, unsigned long request, void *argument, string name) {
+    int ret = ioctl(file_descriptor, request, argument);
+    if (ret < 0) {
+        printf("System call '%s' failed: %s\n", name.c_str(), strerror(errno));
+        exit(ret);
+    }
+    return ret;
+}
+
+int get_register(uint64_t id, uint64_t *val, string name) {
+    struct kvm_one_reg reg {
+        .id = id,
+        .addr = (uintptr_t)val,
+    };
+    printf("Reading register %s\n", name.c_str());
+    ioctl_exit_on_error(vcpufd, KVM_GET_ONE_REG, &reg, "KVM_GET_ONE_REG");
+    printf("%s: %ld\n", name.c_str(), *val);
+    return 0;
+}
+
+int set_register(uint64_t id, uint64_t *val, string name) {
+    struct kvm_one_reg reg {
+        .id = id,
+        .addr = (uintptr_t)val,
+    };
+    printf("Set register %s to %ld\n", name.c_str(), *val);
+    ioctl_exit_on_error(vcpufd, KVM_SET_ONE_REG, &reg, "KVM_SET_ONE_REG");
+    return 0;
+}
+
+int main() {
+    kvm_regs kvm_regs;
+    int ret;
     const uint32_t code[] = {
             /* Add two registers */
             0xd2800281, /* mov	x1, #0x14 */
@@ -28,9 +61,6 @@ string run_vm() {
             //0x52800ba8, /* mov w8, #0x5d */
             //0xd4000001, /* svc #0x0 */
 
-            /* Halt */
-            //0xd45e0000, /* hlt #0xf000 */
-
             /* Wait for Interrupt */
             0xd503207f, /* wfi */
     };
@@ -40,34 +70,32 @@ string run_vm() {
 
     /* Get the KVM file descriptor */
     kvm = open("/dev/kvm", O_RDWR | O_CLOEXEC);
-    if (kvm == -1) {
-        string text = "Cannot open '/dev/kvm' - Cause: ";
-        return text.append(strerror(errno));
+    if (kvm < 0) {
+        printf("Cannot open '/dev/kvm': %s", strerror(errno));
+        return kvm;
     }
 
     /* Make sure we have the stable version of the API */
     ret = ioctl(kvm, KVM_GET_API_VERSION, NULL);
-    if (ret == -1) {
-        return "System call 'KVM_GET_API_VERSION' failed";
+    if (ret < 0) {
+        printf("System call 'KVM_GET_API_VERSION' failed: %s", strerror(errno));
+        return ret;
     }
     if (ret != 12) {
-        string text = "expected KVM API Version 12 got: ";
-        return text.append(to_string(ret));
+        printf("expected KVM API Version 12 got: %d", ret);
+        return -1;
     }
 
     /* Create a VM and receive the VM file descriptor */
     printf("Creating VM\n");
-    vmfd = ioctl(kvm, KVM_CREATE_VM, (unsigned long) 0);
-    if (vmfd == -1) {
-        return "System call 'KVM_CREATE_VM' failed";
-    }
+    vmfd = ioctl_exit_on_error(kvm, KVM_CREATE_VM, (unsigned long) 0, "KVM_CREATE_VM");
 
     /* Allocate one aligned page of guest memory to hold the code. */
     printf("Setting up memory\n");
     void *void_mem = mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     mem = static_cast<uint8_t *>(void_mem);
     if (!mem)
-        return "Error while allocating guest memory";
+        printf("Error while allocating guest memory");
     memcpy(mem, code, sizeof(code));
     printf("Size of code: %ld B\n", sizeof(code));
 
@@ -77,133 +105,85 @@ string run_vm() {
             .memory_size = 0x1000,
             .userspace_addr = (uint64_t) mem,
     };
-    ret = ioctl(vmfd, KVM_SET_USER_MEMORY_REGION, &region);
-    if (ret == -1)
-        return "System call 'KVM_SET_USER_MEMORY_REGION' failed";
+    ioctl_exit_on_error(vmfd, KVM_SET_USER_MEMORY_REGION, &region, "KVM_SET_USER_MEMORY_REGION");
 
     /* Create a virtual CPU and receive its file descriptor */
     printf("Creating VCPU\n");
-    vcpufd = ioctl(vmfd, KVM_CREATE_VCPU, (unsigned long) 0);
-    if (vcpufd == -1)
-        return "System call 'KVM_CREATE_VCPU' failed";
+    vcpufd = ioctl_exit_on_error(vmfd, KVM_CREATE_VCPU, (unsigned long) 0, "KVM_CREATE_VCPU");
 
     /* Get CPU information for VCPU init*/
     printf("Retrieving CPU information\n");
     struct kvm_vcpu_init preferred_target;
-    ret = ioctl(vmfd, KVM_ARM_PREFERRED_TARGET, &preferred_target);
-    if (ret == -1)
-        return "System call 'KVM_ARM_PREFERRED_TARGET' failed";
+    ioctl_exit_on_error(vmfd, KVM_ARM_PREFERRED_TARGET, &preferred_target, "KVM_ARM_PREFERRED_TARGET");
 
     /* Initialize VCPU */
     printf("Initializing VCPU\n");
-    ret = ioctl(vcpufd, KVM_ARM_VCPU_INIT, &preferred_target);
-    if (ret == -1)
-        return "System call 'KVM_ARM_VCPU_INIT' failed";
+    ioctl_exit_on_error(vcpufd, KVM_ARM_VCPU_INIT, &preferred_target, "KVM_ARM_VCPU_INIT");
 
     /* Map the shared kvm_run structure and following data. */
-    ret = ioctl(kvm, KVM_GET_VCPU_MMAP_SIZE, NULL);
-    if (ret == -1)
-        return "System call 'KVM_GET_VCPU_MMAP_SIZE' failed";
+    ret = ioctl_exit_on_error(kvm, KVM_GET_VCPU_MMAP_SIZE, NULL, "KVM_GET_VCPU_MMAP_SIZE");
     mmap_size = ret;
     if (mmap_size < sizeof(*run))
-        return "KVM_GET_VCPU_MMAP_SIZE unexpectedly small";
+        printf("KVM_GET_VCPU_MMAP_SIZE unexpectedly small");
     void_mem = mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpufd, 0);
     run = static_cast<kvm_run *>(void_mem);
     if (!run)
-        return "Error while mmap vcpu";
+        printf("Error while mmap vcpu");
 
+    /* Get register list. Somehow this is necessary */
     struct kvm_reg_list list;
     ret = ioctl(vcpufd, KVM_GET_REG_LIST, &list);
-    if (ret == -1)
-        return "System call 'KVM_GET_REG_LIST' failed";
-    printf("Number of registers that can be set: %llu\n", list.n);
+    if (ret < 0) {
+        printf("System call 'KVM_GET_REG_LIST' failed: %s\n", strerror(errno));
+        return ret;
+    }
 
-    /* Read register PSTATE */
+    /* Read register PSTATE (just for fun) */
     uint64_t val;
-    uint64_t *val_ptr = &val;
-    kvm_regs kvm_regs;
-    struct kvm_one_reg reg {
-        .id = kvm_regs.regs.pstate,
-        .addr = (uintptr_t)val_ptr,
-    };
-    printf("Retrieving register PSTATE\n");
-    ret = ioctl(vcpufd, KVM_GET_ONE_REG, &reg);
-    if (ret == -1) {
-        return "System call 'KVM_GET_ONE_REG' failed";
-    }
-    printf("PSTATE: %ld\n", val);
+    get_register(kvm_regs.regs.pstate, &val, "PSTATE");
 
-    /* Read register PC */
-    printf("Retrieving register PC\n");
-    reg.id = kvm_regs.regs.pc;
-    ret = ioctl(vcpufd, KVM_GET_ONE_REG, &reg);
-    if (ret == -1) {
-        return "System call 'KVM_GET_ONE_REG' failed";
-    }
-    printf("PC: %ld\n", val);
+    /* Read register PC (just for fun) */
+    get_register(kvm_regs.regs.pc, &val, "PC");
 
-    /* Set register x2 to 42 and read it for verification */
-    uint64_t val2 = 42;
-    uint64_t *val2_ptr = &val2;
-    struct kvm_one_reg reg2 {
-        .id = kvm_regs.regs.regs[2],
-        .addr = (uintptr_t)val2_ptr,
-        };
-    printf("Setting register x2 to 42\n");
-    ret = ioctl(vcpufd, KVM_SET_ONE_REG, &reg2);
-    if (ret == -1) {
-        return "System call 'KVM_SET_ONE_REG' failed";
-    }
-    val2 = 0;
-    printf("Retrieving register x2\n");
-    ret = ioctl(vcpufd, KVM_GET_ONE_REG, &reg2);
-    if (ret == -1) {
-        return "System call 'KVM_GET_ONE_REG' failed";
-    }
-    printf("x2: %ld\n", val2);
+    /* Set register x2 to 42 and read it for verification (just for fun) */
+    val = 42;
+    set_register(kvm_regs.regs.regs[2], &val, "x2");
+    val = 0;
+    get_register(kvm_regs.regs.regs[2], &val, "x2");
 
     /* Repeatedly run code and handle VM exits. */
     printf("Running code\n");
-    string res = "Run Result:\n";
-    for (int i = 0; i < 10; i++) {
+    bool done = false;
+    for (int i = 0; i < 10 && !done; i++) {
         printf("Loop %d\n", i);
         ret = ioctl(vcpufd, KVM_RUN, NULL);
         printf("Loop %d\n", i);
-        if (ret == -1)
-            res += "System call 'KVM_RUN' failed";
+        if (ret < 0) {
+            printf("System call 'KVM_RUN' failed: %s\n", strerror(errno));
+            return ret;
+        }
+
         switch (run->exit_reason) {
             case KVM_EXIT_HLT:
-                res += "KVM_EXIT_HLT\nSUCCESS!";
-                return res;
+                printf("KVM_EXIT_HLT\n");
+                done = true;
+                break;
             case KVM_EXIT_IO:
-                res += "KVM_EXIT_IO";
+                printf("KVM_EXIT_IO\n");
                 break;
             case KVM_EXIT_FAIL_ENTRY:
-                res += "KVM_EXIT_FAIL_ENTRY";
+                printf("KVM_EXIT_FAIL_ENTRY\n");
                 break;
             case KVM_EXIT_INTERNAL_ERROR:
-                res += "KVM_EXIT_INTERNAL_ERROR";
+                printf("KVM_EXIT_INTERNAL_ERROR\n");
                 break;
             default:
-                res += "KVM_EXIT other";
+                printf("KVM_EXIT other\n");
         }
-        res += "\n";
     }
 
-    /* Read register PC */
-    printf("Retrieving register PC\n");
-    reg.id = kvm_regs.regs.pc;
-    ret = ioctl(vcpufd, KVM_GET_ONE_REG, &reg);
-    if (ret == -1) {
-        return "System call 'KVM_GET_ONE_REG' failed";
-    }
-    printf("PC: %ld\n", val);
+    /* Read register PC should not be 0 anymore */
+    get_register(kvm_regs.regs.pc, &val, "PC");
 
-    return res;
-}
-
-int main() {
-    string result = run_vm();
-    printf("%s\n", result.c_str());
     return 0;
 }
