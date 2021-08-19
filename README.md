@@ -11,4 +11,4 @@ The folder `arm-assembly-calc` contains an ARM64 Assembly program that sets two 
 
 # KVM Test Program
 
-The cpp-file `kvm-test.cpp` contains a program that shall setup an ARM64 VM and execute the arm-assembly-calc program in the VM.
+The cpp-file `kvm-test.cpp` contains a program that shall setup an ARM64 VM and execute the arm-assembly-calc program in the VM. As a starting point [this](https://lwn.net/Articles/658512/) KVM test program for x86 was used. It is explained [here](https://lwn.net/Articles/658511/).
