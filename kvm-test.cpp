@@ -16,7 +16,17 @@
 using namespace std;
 
 int kvm, vmfd, vcpufd;
+u_int32_t slot_count = 0;
 
+/**
+ * Execute an ioctl with the given arguments. Exit the program if there is an error.
+ *
+ * @param file_descriptor
+ * @param request
+ * @param argument
+ * @param name The name of the ioctl request for error output.
+ * @return The return value of the ioctl.
+ */
 int ioctl_exit_on_error(int file_descriptor, unsigned long request, void *argument, string name) {
     int ret = ioctl(file_descriptor, request, argument);
     if (ret < 0) {
@@ -26,27 +36,75 @@ int ioctl_exit_on_error(int file_descriptor, unsigned long request, void *argume
     return ret;
 }
 
+/**
+ * Get the value of a register.
+ *
+ * @param id The ID of the register. They can be found in the struct 'kvm_regs'.
+ * @param val The location where the result will be stored.
+ * @param name The name of the register for log statements.
+ * @return The return value of the involved ioctl.
+ */
 int get_register(uint64_t id, uint64_t *val, string name) {
     struct kvm_one_reg reg {
         .id = id,
         .addr = (uintptr_t)val,
     };
     printf("Reading register %s\n", name.c_str());
-    ioctl_exit_on_error(vcpufd, KVM_GET_ONE_REG, &reg, "KVM_GET_ONE_REG");
+    int ret = ioctl_exit_on_error(vcpufd, KVM_GET_ONE_REG, &reg, "KVM_GET_ONE_REG");
     printf("%s: %ld\n", name.c_str(), *val);
-    return 0;
+    return ret;
 }
 
+/**
+ * Set the value of a register.
+ *
+ * @param id The ID of the register. They can be found in the struct 'kvm_regs'.
+ * @param val The location where the value to be set is stored.
+ * @param name The name of the register for log statements.
+ * @return The return value of the involved ioctl.
+ */
 int set_register(uint64_t id, uint64_t *val, string name) {
     struct kvm_one_reg reg {
         .id = id,
         .addr = (uintptr_t)val,
     };
     printf("Set register %s to %ld\n", name.c_str(), *val);
-    ioctl_exit_on_error(vcpufd, KVM_SET_ONE_REG, &reg, "KVM_SET_ONE_REG");
-    return 0;
+    int ret = ioctl_exit_on_error(vcpufd, KVM_SET_ONE_REG, &reg, "KVM_SET_ONE_REG");
+    return ret;
 }
 
+/**
+ * Allocates memory and assigns it to the VM as guest memory.
+ *
+ * @param memory_len The length of the memory that shall be allocated.
+ * @param guest_addr The address of the memory in the guest.
+ * @return A pointer to the allocated memory.
+ */
+uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr) {
+    void *void_mem = mmap(NULL, memory_len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    uint8_t *mem = static_cast<uint8_t *>(void_mem);
+    if (!mem) {
+        printf("Error while allocating guest memory: %s\n", strerror(errno));
+        exit(-1);
+    }
+
+    struct kvm_userspace_memory_region region = {
+            .slot = slot_count,
+            .guest_phys_addr = guest_addr,
+            .memory_size = memory_len,
+            .userspace_addr = (uint64_t) mem,
+            };
+    slot_count++;
+    ioctl_exit_on_error(vmfd, KVM_SET_USER_MEMORY_REGION, &region, "KVM_SET_USER_MEMORY_REGION");
+    return mem;
+}
+
+/**
+ * This is a KVM test program for ARM64.
+ * As a starting point, this KVM test program for x86 was used: https://lwn.net/Articles/658512/
+ * It is explained here: https://lwn.net/Articles/658511/
+ * To change the code from x86 to ARM64 the KVM API Documentation was used: https://www.kernel.org/doc/html/latest/virt/kvm/api.html
+ */
 int main() {
     kvm_regs kvm_regs;
     int ret;
@@ -90,22 +148,9 @@ int main() {
     printf("Creating VM\n");
     vmfd = ioctl_exit_on_error(kvm, KVM_CREATE_VM, (unsigned long) 0, "KVM_CREATE_VM");
 
-    /* Allocate one aligned page of guest memory to hold the code. */
     printf("Setting up memory\n");
-    void *void_mem = mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    mem = static_cast<uint8_t *>(void_mem);
-    if (!mem)
-        printf("Error while allocating guest memory");
+    mem = allocate_memory_to_vm(0x1000, 0x0000);
     memcpy(mem, code, sizeof(code));
-    printf("Size of code: %ld B\n", sizeof(code));
-
-    struct kvm_userspace_memory_region region = {
-            .slot = 0,
-            .guest_phys_addr = 0x0000,
-            .memory_size = 0x1000,
-            .userspace_addr = (uint64_t) mem,
-    };
-    ioctl_exit_on_error(vmfd, KVM_SET_USER_MEMORY_REGION, &region, "KVM_SET_USER_MEMORY_REGION");
 
     /* Create a virtual CPU and receive its file descriptor */
     printf("Creating VCPU\n");
@@ -125,7 +170,7 @@ int main() {
     mmap_size = ret;
     if (mmap_size < sizeof(*run))
         printf("KVM_GET_VCPU_MMAP_SIZE unexpectedly small");
-    void_mem = mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpufd, 0);
+    void *void_mem = mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpufd, 0);
     run = static_cast<kvm_run *>(void_mem);
     if (!run)
         printf("Error while mmap vcpu");
@@ -170,6 +215,12 @@ int main() {
                 break;
             case KVM_EXIT_IO:
                 printf("KVM_EXIT_IO\n");
+                break;
+            case KVM_EXIT_MMIO:
+                printf("KVM_EXIT_MMIO\n");
+                break;
+            case KVM_EXIT_INTR:
+                printf("KVM_EXIT_INTR\n");
                 break;
             case KVM_EXIT_FAIL_ENTRY:
                 printf("KVM_EXIT_FAIL_ENTRY\n");
