@@ -149,15 +149,31 @@ int main() {
     vmfd = ioctl_exit_on_error(kvm, KVM_CREATE_VM, (unsigned long) 0, "KVM_CREATE_VM");
 
     printf("Setting up memory\n");
-    mem = allocate_memory_to_vm(0x1000, 0x0000);
+
+    /*
+     * MEMORY MAP
+     *
+     * Start      | Name  | Description
+     * -----------+-------+------------
+     * 0x10000000 | MMIO  |
+     * 0x0401F000 | Stack | grows downwards, so initially it is 0x0401FFFF
+     * 0x04010000 | Heap  | grows upward
+     * 0x04000000 | RAM   |
+     * 0x00000000 | ROM   |
+     *
+     */
+    mem = allocate_memory_to_vm(0x1000, 0x0);
     memcpy(mem, code, sizeof(code));
+    mem = allocate_memory_to_vm(0x1000, 0x04000000);
+    mem = allocate_memory_to_vm(0x1000, 0x04010000);
+    mem = allocate_memory_to_vm(0x1000, 0x0401F000);
 
     /* Create a virtual CPU and receive its file descriptor */
     printf("Creating VCPU\n");
     vcpufd = ioctl_exit_on_error(vmfd, KVM_CREATE_VCPU, (unsigned long) 0, "KVM_CREATE_VCPU");
 
     /* Get CPU information for VCPU init*/
-    printf("Retrieving CPU information\n");
+    printf("Retrieving physical CPU information\n");
     struct kvm_vcpu_init preferred_target;
     ioctl_exit_on_error(vmfd, KVM_ARM_PREFERRED_TARGET, &preferred_target, "KVM_ARM_PREFERRED_TARGET");
 
