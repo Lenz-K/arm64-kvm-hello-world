@@ -43,7 +43,7 @@ int ioctl_exit_on_error(int file_descriptor, unsigned long request, void *argume
  * @param name The name of the extension for log statements.
  * @return The return value of the involved ioctl.
  */
-int check_kvm_extension(int extension, string name) {
+int check_vm_extension(int extension, string name) {
     int ret = ioctl(vmfd, KVM_CHECK_EXTENSION, extension);
     if (ret < 0) {
         printf("System call 'KVM_CHECK_EXTENSION' failed: %s\n", strerror(errno));
@@ -53,43 +53,6 @@ int check_kvm_extension(int extension, string name) {
         printf("Extension '%s' not available\n", name.c_str());
         exit(-1);
     }
-    return ret;
-}
-
-/**
- * Get the value of a register.
- *
- * @param id The ID of the register. They can be found in the struct 'kvm_regs'.
- * @param val The location where the result will be stored.
- * @param name The name of the register for log statements.
- * @return The return value of the involved ioctl.
- */
-int get_register(uint64_t id, uint64_t *val, string name) {
-    struct kvm_one_reg reg {
-        .id = id,
-        .addr = (uintptr_t)val,
-    };
-    printf("Reading register %s\n", name.c_str());
-    int ret = ioctl_exit_on_error(vcpufd, KVM_GET_ONE_REG, &reg, "KVM_GET_ONE_REG");
-    printf("%s: %ld\n", name.c_str(), *val);
-    return ret;
-}
-
-/**
- * Set the value of a register.
- *
- * @param id The ID of the register. They can be found in the struct 'kvm_regs'.
- * @param val The location where the value to be set is stored.
- * @param name The name of the register for log statements.
- * @return The return value of the involved ioctl.
- */
-int set_register(uint64_t id, uint64_t *val, string name) {
-    struct kvm_one_reg reg {
-        .id = id,
-        .addr = (uintptr_t)val,
-    };
-    printf("Set register %s to %ld\n", name.c_str(), *val);
-    int ret = ioctl_exit_on_error(vcpufd, KVM_SET_ONE_REG, &reg, "KVM_SET_ONE_REG");
     return ret;
 }
 
@@ -127,7 +90,6 @@ uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t 
  * To change the code from x86 to ARM64 the KVM API Documentation was used: https://www.kernel.org/doc/html/latest/virt/kvm/api.html
  */
 int main() {
-    kvm_regs kvm_regs;
     int ret;
     const uint32_t code[] = {
             /* Add two registers */
@@ -170,7 +132,6 @@ int main() {
     vmfd = ioctl_exit_on_error(kvm, KVM_CREATE_VM, (unsigned long) 0, "KVM_CREATE_VM");
 
     printf("Setting up memory\n");
-
     /*
      * MEMORY MAP
      *
@@ -183,13 +144,13 @@ int main() {
      * 0x00000000 | ROM   |
      *
      */
-    check_kvm_extension(KVM_CAP_USER_MEMORY, "KVM_CAP_USER_MEMORY");
+    check_vm_extension(KVM_CAP_USER_MEMORY, "KVM_CAP_USER_MEMORY");
     mem = allocate_memory_to_vm(0x1000, 0x0);
     memcpy(mem, code, sizeof(code));
     mem = allocate_memory_to_vm(0x1000, 0x04000000);
     mem = allocate_memory_to_vm(0x1000, 0x04010000);
     mem = allocate_memory_to_vm(0x1000, 0x0401F000);
-    check_kvm_extension(KVM_CAP_READONLY_MEM, "KVM_CAP_READONLY_MEM");
+    check_vm_extension(KVM_CAP_READONLY_MEM, "KVM_CAP_READONLY_MEM");
     mem = allocate_memory_to_vm(0x1000, 0x10000000, KVM_MEM_READONLY);
 
     /* Create a virtual CPU and receive its file descriptor */
@@ -214,28 +175,6 @@ int main() {
     run = static_cast<kvm_run *>(void_mem);
     if (!run)
         printf("Error while mmap vcpu");
-
-    /* Get register list. Somehow this is necessary */
-    struct kvm_reg_list list;
-    ret = ioctl(vcpufd, KVM_GET_REG_LIST, &list);
-    if (ret < 0) {
-        printf("System call 'KVM_GET_REG_LIST' failed: %s\n", strerror(errno));
-        return ret;
-    }
-
-    check_kvm_extension(KVM_CAP_ONE_REG, "KVM_CAP_ONE_REG");
-    /* Read register PSTATE (just for fun) */
-    uint64_t val;
-    get_register(kvm_regs.regs.pstate, &val, "PSTATE");
-
-    /* Read register PC (just for fun) */
-    get_register(kvm_regs.regs.pc, &val, "PC");
-
-    /* Set register x2 to 42 and read it for verification (just for fun) */
-    val = 42;
-    //set_register(kvm_regs.regs.regs[2], &val, "x2");
-    val = 0;
-    get_register(kvm_regs.regs.regs[2], &val, "x2");
 
     /* Repeatedly run code and handle VM exits. */
     printf("Running code\n");
@@ -273,9 +212,6 @@ int main() {
                 printf("KVM_EXIT other\n");
         }
     }
-
-    /* Read register PC should not be 0 anymore */
-    get_register(kvm_regs.regs.pc, &val, "PC");
 
     return 0;
 }
