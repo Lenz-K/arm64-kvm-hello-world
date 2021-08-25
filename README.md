@@ -1,6 +1,6 @@
 # About
 
-All code is compiled and tested on a ARMv8-A processor running Ubuntu 21.04.
+All code is compiled and tested on an ARMv8-A processor running Ubuntu 21.04.
 
 
 # Contents

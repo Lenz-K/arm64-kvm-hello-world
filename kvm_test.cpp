@@ -37,6 +37,22 @@ int ioctl_exit_on_error(int file_descriptor, unsigned long request, void *argume
 }
 
 /**
+ * Checks the availability of KVM extensions.
+ *
+ * @param extension The extension identifier to check for.
+ * @param name The name of the extension for log statements.
+ * @return The return value of the involved ioctl.
+ */
+int check_kvm_extension(int extension, string name) {
+    int ret = ioctl_exit_on_error(kvm, KVM_CHECK_EXTENSION, extension, "KVM_CHECK_EXTENSION");
+    if (!ret) {
+        printf("Extension %s not available", name.c_str())
+        exit(-1)
+    }
+    return ret;
+}
+
+/**
  * Get the value of a register.
  *
  * @param id The ID of the register. They can be found in the struct 'kvm_regs'.
@@ -80,7 +96,7 @@ int set_register(uint64_t id, uint64_t *val, string name) {
  * @param guest_addr The address of the memory in the guest.
  * @return A pointer to the allocated memory.
  */
-uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr) {
+uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t flags = 0) {
     void *void_mem = mmap(NULL, memory_len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     uint8_t *mem = static_cast<uint8_t *>(void_mem);
     if (!mem) {
@@ -90,6 +106,7 @@ uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr) {
 
     struct kvm_userspace_memory_region region = {
             .slot = slot_count,
+            .flags = flags;
             .guest_phys_addr = guest_addr,
             .memory_size = memory_len,
             .userspace_addr = (uint64_t) mem,
@@ -156,17 +173,20 @@ int main() {
      * Start      | Name  | Description
      * -----------+-------+------------
      * 0x10000000 | MMIO  |
-     * 0x0401F000 | Stack | grows downwards, so initially it is 0x0401FFFF
+     * 0x0401F000 | Stack | grows downwards, so the SP is initially 0x0401FFFF
      * 0x04010000 | Heap  | grows upward
      * 0x04000000 | RAM   |
      * 0x00000000 | ROM   |
      *
      */
+    check_kvm_extension(KVM_CAP_USER_MEMORY, "KVM_CAP_USER_MEMORY")
     mem = allocate_memory_to_vm(0x1000, 0x0);
     memcpy(mem, code, sizeof(code));
     mem = allocate_memory_to_vm(0x1000, 0x04000000);
     mem = allocate_memory_to_vm(0x1000, 0x04010000);
     mem = allocate_memory_to_vm(0x1000, 0x0401F000);
+    check_kvm_extension(KVM_CAP_READONLY_MEM, "KVM_CAP_READONLY_MEM")
+    mem = allocate_memory_to_vm(0x1000, 0x10000000, KVM_MEM_READONLY);
 
     /* Create a virtual CPU and receive its file descriptor */
     printf("Creating VCPU\n");
@@ -192,6 +212,7 @@ int main() {
         printf("Error while mmap vcpu");
 
     /* Get register list. Somehow this is necessary */
+    check_kvm_extension(KVM_CAP_ONE_REG, "KVM_CAP_ONE_REG")
     struct kvm_reg_list list;
     ret = ioctl(vcpufd, KVM_GET_REG_LIST, &list);
     if (ret < 0) {
@@ -199,6 +220,7 @@ int main() {
         return ret;
     }
 
+    check_kvm_extension(KVM_CAP_ONE_REG, "KVM_CAP_ONE_REG")
     /* Read register PSTATE (just for fun) */
     uint64_t val;
     get_register(kvm_regs.regs.pstate, &val, "PSTATE");
