@@ -1,0 +1,97 @@
+
+hello_world.elf:     file format elf64-littleaarch64
+
+
+Disassembly of section .startup:
+
+0000000000000000 <_startup>:
+   0:	580000de 	ldr	x30, 18 <sleep+0xc>
+   4:	910003df 	mov	sp, x30
+   8:	94000018 	bl	68 <main>
+
+000000000000000c <sleep>:
+   c:	d503207f 	wfi
+  10:	17ffffff 	b	c <sleep>
+  14:	00000000 	udf	#0
+  18:	000010f0 	udf	#4336
+  1c:	00000000 	udf	#0
+
+Disassembly of section .text:
+
+0000000000000020 <print_uart0>:
+  20:	d10043ff 	sub	sp, sp, #0x10
+  24:	f90007e0 	str	x0, [sp, #8]
+  28:	14000008 	b	48 <print_uart0+0x28>
+  2c:	f94007e0 	ldr	x0, [sp, #8]
+  30:	39400001 	ldrb	w1, [x0]
+  34:	d2a20000 	mov	x0, #0x10000000            	// #268435456
+  38:	b9000001 	str	w1, [x0]
+  3c:	f94007e0 	ldr	x0, [sp, #8]
+  40:	91000400 	add	x0, x0, #0x1
+  44:	f90007e0 	str	x0, [sp, #8]
+  48:	f94007e0 	ldr	x0, [sp, #8]
+  4c:	39400000 	ldrb	w0, [x0]
+  50:	7100001f 	cmp	w0, #0x0
+  54:	54fffec1 	b.ne	2c <print_uart0+0xc>  // b.any
+  58:	d503201f 	nop
+  5c:	d503201f 	nop
+  60:	910043ff 	add	sp, sp, #0x10
+  64:	d65f03c0 	ret
+
+0000000000000068 <main>:
+  68:	a9bf7bfd 	stp	x29, x30, [sp, #-16]!
+  6c:	910003fd 	mov	x29, sp
+  70:	90000000 	adrp	x0, 0 <_startup>
+  74:	91024000 	add	x0, x0, #0x90
+  78:	97ffffea 	bl	20 <print_uart0>
+  7c:	d503201f 	nop
+  80:	a8c17bfd 	ldp	x29, x30, [sp], #16
+  84:	d65f03c0 	ret
+
+Disassembly of section .rodata:
+
+0000000000000088 <UART0DR>:
+  88:	10000000 	adr	x0, 88 <UART0DR>
+  8c:	00000000 	udf	#0
+  90:	6c6c6548 	ldnp	d8, d25, [x10, #-320]
+  94:	6f77206f 	umlal2	v15.4s, v3.8h, v7.h[3]
+  98:	21646c72 	.inst	0x21646c72 ; undefined
+  9c:	Address 0x000000000000009c is out of bounds.
+
+
+Disassembly of section .eh_frame:
+
+00000000000000a0 <stack_top-0x1050>:
+  a0:	00000010 	udf	#16
+  a4:	00000000 	udf	#0
+  a8:	00527a01 	.inst	0x00527a01 ; undefined
+  ac:	011e7804 	.inst	0x011e7804 ; undefined
+  b0:	001f0c1b 	.inst	0x001f0c1b ; undefined
+  b4:	00000014 	udf	#20
+  b8:	00000018 	udf	#24
+  bc:	ffffff64 	.inst	0xffffff64 ; undefined
+  c0:	00000048 	udf	#72
+  c4:	100e4100 	adr	x0, 1c8e4 <stack_top+0x1b7f4>
+  c8:	00000e50 	udf	#3664
+  cc:	0000001c 	udf	#28
+  d0:	00000030 	udf	#48
+  d4:	ffffff94 	.inst	0xffffff94 ; undefined
+  d8:	00000020 	udf	#32
+  dc:	100e4100 	adr	x0, 1c8fc <stack_top+0x1b80c>
+  e0:	019e029d 	.inst	0x019e029d ; undefined
+  e4:	0eddde46 	.inst	0x0eddde46 ; undefined
+  e8:	00000000 	udf	#0
+
+Disassembly of section .comment:
+
+0000000000000000 <.comment>:
+   0:	3a434347 	ccmn	w26, w3, #0x7, mi  // mi = first
+   4:	62552820 	.inst	0x62552820 ; undefined
+   8:	75746e75 	.inst	0x75746e75 ; undefined
+   c:	2e303120 	usubw	v0.8h, v9.8h, v16.8b
+  10:	2d302e33 	stp	s19, s11, [x17, #-128]
+  14:	75627531 	.inst	0x75627531 ; undefined
+  18:	3175746e 	adds	w14, w3, #0xd5d, lsl #12
+  1c:	30312029 	adr	x9, 62421 <stack_top+0x61331>
+  20:	302e332e 	adr	x14, 5c685 <stack_top+0x5b595>
+	...

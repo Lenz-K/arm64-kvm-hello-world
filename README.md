@@ -21,6 +21,14 @@ The folder `arm-assembly-calc` contains a minimalistic ARM64 Assembly program th
 ## 3. bare-metal-arm64-hello-world
 
 The folder `bare-metal-arm64-hello-world` contains a bare metal ARM64 Assembly program that outputs "Hello World!\n".
+It can be compiled with the script `compile.sh`.
+
+### Running it with QEMU
+
+To run the program with QEMU the address `0x0` in the `link_script.ld` has to be replace with `0x40000000`.
+Also the value of `UART0DR` has to be replaced with `0x09000000`.
+After compiling it, it can be run with `qemu-system-aarch64 -M virt -cpu host -enable-kvm -nographic -kernel hello_world.elf` on an ARM64 processor.
+To emulate it on another architecture replace `-cpu host` with `-cpu cortex-a57` for example.
 
 ### Sources
 - https://github.com/freedomtan/aarch64-bare-metal-qemu
