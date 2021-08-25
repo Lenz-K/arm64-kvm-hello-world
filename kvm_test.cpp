@@ -37,17 +37,21 @@ int ioctl_exit_on_error(int file_descriptor, unsigned long request, void *argume
 }
 
 /**
- * Checks the availability of KVM extensions.
+ * Checks the availability of a KVM extension. Exits on errors and if the extension is not available.
  *
  * @param extension The extension identifier to check for.
  * @param name The name of the extension for log statements.
  * @return The return value of the involved ioctl.
  */
 int check_kvm_extension(int extension, string name) {
-    int ret = ioctl_exit_on_error(kvm, KVM_CHECK_EXTENSION, extension, "KVM_CHECK_EXTENSION");
-    if (!ret) {
-        printf("Extension %s not available", name.c_str())
-        exit(-1)
+    int ret = ioctl(vmfd, KVM_CHECK_EXTENSION, extension);
+    if (ret < 0) {
+        printf("System call 'KVM_CHECK_EXTENSION' failed: %s\n", strerror(errno));
+        exit(ret);
+    }
+    if (ret == 0) {
+        printf("Extension '%s' not available\n", name.c_str());
+        exit(-1);
     }
     return ret;
 }
@@ -106,7 +110,7 @@ uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t 
 
     struct kvm_userspace_memory_region region = {
             .slot = slot_count,
-            .flags = flags;
+            .flags = flags,
             .guest_phys_addr = guest_addr,
             .memory_size = memory_len,
             .userspace_addr = (uint64_t) mem,
@@ -179,13 +183,13 @@ int main() {
      * 0x00000000 | ROM   |
      *
      */
-    check_kvm_extension(KVM_CAP_USER_MEMORY, "KVM_CAP_USER_MEMORY")
+    check_kvm_extension(KVM_CAP_USER_MEMORY, "KVM_CAP_USER_MEMORY");
     mem = allocate_memory_to_vm(0x1000, 0x0);
     memcpy(mem, code, sizeof(code));
     mem = allocate_memory_to_vm(0x1000, 0x04000000);
     mem = allocate_memory_to_vm(0x1000, 0x04010000);
     mem = allocate_memory_to_vm(0x1000, 0x0401F000);
-    check_kvm_extension(KVM_CAP_READONLY_MEM, "KVM_CAP_READONLY_MEM")
+    check_kvm_extension(KVM_CAP_READONLY_MEM, "KVM_CAP_READONLY_MEM");
     mem = allocate_memory_to_vm(0x1000, 0x10000000, KVM_MEM_READONLY);
 
     /* Create a virtual CPU and receive its file descriptor */
@@ -212,7 +216,6 @@ int main() {
         printf("Error while mmap vcpu");
 
     /* Get register list. Somehow this is necessary */
-    check_kvm_extension(KVM_CAP_ONE_REG, "KVM_CAP_ONE_REG")
     struct kvm_reg_list list;
     ret = ioctl(vcpufd, KVM_GET_REG_LIST, &list);
     if (ret < 0) {
@@ -220,7 +223,7 @@ int main() {
         return ret;
     }
 
-    check_kvm_extension(KVM_CAP_ONE_REG, "KVM_CAP_ONE_REG")
+    check_kvm_extension(KVM_CAP_ONE_REG, "KVM_CAP_ONE_REG");
     /* Read register PSTATE (just for fun) */
     uint64_t val;
     get_register(kvm_regs.regs.pstate, &val, "PSTATE");
@@ -230,7 +233,7 @@ int main() {
 
     /* Set register x2 to 42 and read it for verification (just for fun) */
     val = 42;
-    set_register(kvm_regs.regs.regs[2], &val, "x2");
+    //set_register(kvm_regs.regs.regs[2], &val, "x2");
     val = 0;
     get_register(kvm_regs.regs.regs[2], &val, "x2");
 
