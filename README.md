@@ -8,7 +8,7 @@ All code is compiled and tested on an ARMv8-A processor running Ubuntu 21.04.
 ## 1. arm64-assembly-hello-world
 
 The folder `arm-assembly-hello-world` contains an ARM64 Assembly program that outputs "Hello World!\n".
-It is an adaption of [this tutorial](https://peterdn.com/post/2020/08/22/hello-world-in-arm64-assembly/).
+It is an adaption of [this](https://peterdn.com/post/2020/08/22/hello-world-in-arm64-assembly/) tutorial.
 It was assembled to an object file with `as -o hello-world.o hello-world.s` and then linked with `ld -s -o hello-world hello-world.o`.
 With `objdump -D hello-world > hello-world-objdump.txt` a textfile was created, that contains the translation between ARM64 Assembly instructions and machine code instructions.
 
@@ -23,19 +23,19 @@ The folder `arm-assembly-calc` contains a minimalistic ARM64 Assembly program th
 The folder `bare-metal-arm64-hello-world` contains a bare metal ARM64 Assembly program that outputs "Hello World!\n".
 It can be compiled with the script `compile.sh`.
 
-### Running it with QEMU
+### Sources
+- https://developer.arm.com/documentation/102432/0100
+- https://github.com/freedomtan/aarch64-bare-metal-qemu
 
-To run the program with QEMU the address `0x0` in the `link_script.ld` has to be replace with `0x40000000`.
-Also the value of `UART0DR` has to be replaced with `0x09000000`.
-After compiling it, it can be run with `qemu-system-aarch64 -M virt -cpu host -enable-kvm -nographic -kernel hello_world.elf` on an ARM64 processor.
+## 4. bare-metal-arm64-hello-world-qemu
+
+The folder `bare-metal-arm64-hello-world-qemu` contains the base program used in `bare-metal-arm64-hello-world`.
+It is an adaption of [this](https://github.com/freedomtan/aarch64-bare-metal-qemu) repository.
+It can be compiled with the script `compile.sh`.
+After compiling it, it can be tested with QEMU by issuing `qemu-system-aarch64 -M virt -cpu host -enable-kvm -nographic -kernel hello_world.elf` on a system with an ARM64 processor.
 To emulate it on another architecture replace `-cpu host` with `-cpu cortex-a57` for example.
 
-### Sources
-- https://github.com/freedomtan/aarch64-bare-metal-qemu
-- https://developer.arm.com/documentation/102432/0100
-
-
-## 4. KVM Test Program
+## 5. KVM Test Program
 
 The cpp-file `kvm_test.cpp` contains a program that shall setup an ARM64 VM and execute the bare-metal-arm64-hello-world program in the VM.
 As a starting point, [this](https://lwn.net/Articles/658512/) KVM test program for x86 was used.
