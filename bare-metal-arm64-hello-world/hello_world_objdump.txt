@@ -5,82 +5,84 @@ hello_world.elf:     file format elf64-littleaarch64
 Disassembly of section .startup:
 
 0000000000000000 <_startup>:
-   0:	580000de 	ldr	x30, 18 <sleep+0xc>
+   0:	5800011e 	ldr	x30, 20 <sleep+0xc>
    4:	910003df 	mov	sp, x30
-   8:	94000018 	bl	68 <main>
+   8:	d2a20000 	mov	x0, #0x10000000            	// #268435456
+   c:	f900001e 	str	x30, [x0]
+  10:	9500000e 	bl	4000048 <main>
 
-000000000000000c <sleep>:
-   c:	d503207f 	wfi
-  10:	17ffffff 	b	c <sleep>
-  14:	00000000 	udf	#0
-  18:	000010f0 	udf	#4336
+0000000000000014 <sleep>:
+  14:	d503207f 	wfi
+  18:	17ffffff 	b	14 <sleep>
   1c:	00000000 	udf	#0
+  20:	0401ffff 	msb	z31.b, p7/m, z1.b, z31.b
+  24:	00000000 	udf	#0
 
 Disassembly of section .text:
 
-0000000000000020 <print_uart0>:
-  20:	d10043ff 	sub	sp, sp, #0x10
-  24:	f90007e0 	str	x0, [sp, #8]
-  28:	14000008 	b	48 <print_uart0+0x28>
-  2c:	f94007e0 	ldr	x0, [sp, #8]
-  30:	39400001 	ldrb	w1, [x0]
-  34:	d2a20000 	mov	x0, #0x10000000            	// #268435456
-  38:	b9000001 	str	w1, [x0]
-  3c:	f94007e0 	ldr	x0, [sp, #8]
-  40:	91000400 	add	x0, x0, #0x1
-  44:	f90007e0 	str	x0, [sp, #8]
-  48:	f94007e0 	ldr	x0, [sp, #8]
-  4c:	39400000 	ldrb	w0, [x0]
-  50:	7100001f 	cmp	w0, #0x0
-  54:	54fffec1 	b.ne	2c <print_uart0+0xc>  // b.any
-  58:	d503201f 	nop
-  5c:	d503201f 	nop
-  60:	910043ff 	add	sp, sp, #0x10
-  64:	d65f03c0 	ret
+0000000004000000 <print_uart0>:
+ 4000000:	d10043ff 	sub	sp, sp, #0x10
+ 4000004:	f90007e0 	str	x0, [sp, #8]
+ 4000008:	14000008 	b	4000028 <print_uart0+0x28>
+ 400000c:	f94007e0 	ldr	x0, [sp, #8]
+ 4000010:	39400001 	ldrb	w1, [x0]
+ 4000014:	d2a20000 	mov	x0, #0x10000000            	// #268435456
+ 4000018:	b9000001 	str	w1, [x0]
+ 400001c:	f94007e0 	ldr	x0, [sp, #8]
+ 4000020:	91000400 	add	x0, x0, #0x1
+ 4000024:	f90007e0 	str	x0, [sp, #8]
+ 4000028:	f94007e0 	ldr	x0, [sp, #8]
+ 400002c:	39400000 	ldrb	w0, [x0]
+ 4000030:	7100001f 	cmp	w0, #0x0
+ 4000034:	54fffec1 	b.ne	400000c <print_uart0+0xc>  // b.any
+ 4000038:	d503201f 	nop
+ 400003c:	d503201f 	nop
+ 4000040:	910043ff 	add	sp, sp, #0x10
+ 4000044:	d65f03c0 	ret
 
-0000000000000068 <main>:
-  68:	a9bf7bfd 	stp	x29, x30, [sp, #-16]!
-  6c:	910003fd 	mov	x29, sp
-  70:	90000000 	adrp	x0, 0 <_startup>
-  74:	91024000 	add	x0, x0, #0x90
-  78:	97ffffea 	bl	20 <print_uart0>
-  7c:	d503201f 	nop
-  80:	a8c17bfd 	ldp	x29, x30, [sp], #16
-  84:	d65f03c0 	ret
+0000000004000048 <main>:
+ 4000048:	a9bf7bfd 	stp	x29, x30, [sp, #-16]!
+ 400004c:	910003fd 	mov	x29, sp
+ 4000050:	90000000 	adrp	x0, 4000000 <print_uart0>
+ 4000054:	9101c000 	add	x0, x0, #0x70
+ 4000058:	97ffffea 	bl	4000000 <print_uart0>
+ 400005c:	d503201f 	nop
+ 4000060:	a8c17bfd 	ldp	x29, x30, [sp], #16
+ 4000064:	d65f03c0 	ret
 
 Disassembly of section .rodata:
 
-0000000000000088 <UART0DR>:
-  88:	10000000 	adr	x0, 88 <UART0DR>
-  8c:	00000000 	udf	#0
-  90:	6c6c6548 	ldnp	d8, d25, [x10, #-320]
-  94:	6f77206f 	umlal2	v15.4s, v3.8h, v7.h[3]
-  98:	21646c72 	.inst	0x21646c72 ; undefined
-  9c:	Address 0x000000000000009c is out of bounds.
+0000000004000068 <UART0DR>:
+ 4000068:	10000000 	adr	x0, 4000068 <UART0DR>
+ 400006c:	00000000 	udf	#0
+ 4000070:	6c6c6548 	ldnp	d8, d25, [x10, #-320]
+ 4000074:	6f77206f 	umlal2	v15.4s, v3.8h, v7.h[3]
+ 4000078:	21646c72 	.inst	0x21646c72 ; undefined
+ 400007c:	Address 0x000000000400007c is out of bounds.
 
 
 Disassembly of section .eh_frame:
 
-00000000000000a0 <stack_top-0x1050>:
-  a0:	00000010 	udf	#16
-  a4:	00000000 	udf	#0
-  a8:	00527a01 	.inst	0x00527a01 ; undefined
-  ac:	011e7804 	.inst	0x011e7804 ; undefined
-  b0:	001f0c1b 	.inst	0x001f0c1b ; undefined
-  b4:	00000014 	udf	#20
-  b8:	00000018 	udf	#24
-  bc:	ffffff64 	.inst	0xffffff64 ; undefined
-  c0:	00000048 	udf	#72
-  c4:	100e4100 	adr	x0, 1c8e4 <stack_top+0x1b7f4>
-  c8:	00000e50 	udf	#3664
-  cc:	0000001c 	udf	#28
-  d0:	00000030 	udf	#48
-  d4:	ffffff94 	.inst	0xffffff94 ; undefined
-  d8:	00000020 	udf	#32
-  dc:	100e4100 	adr	x0, 1c8fc <stack_top+0x1b80c>
-  e0:	019e029d 	.inst	0x019e029d ; undefined
-  e4:	0eddde46 	.inst	0x0eddde46 ; undefined
-  e8:	00000000 	udf	#0
+0000000004000080 <stack_top-0x1ff7f>:
+ 4000080:	00000010 	udf	#16
+ 4000084:	00000000 	udf	#0
+ 4000088:	00527a01 	.inst	0x00527a01 ; undefined
+ 400008c:	011e7804 	.inst	0x011e7804 ; undefined
+ 4000090:	001f0c1b 	.inst	0x001f0c1b ; undefined
+ 4000094:	00000014 	udf	#20
+ 4000098:	00000018 	udf	#24
+ 400009c:	ffffff64 	.inst	0xffffff64 ; undefined
+ 40000a0:	00000048 	udf	#72
+ 40000a4:	100e4100 	adr	x0, 401c8c4 <UART0DR+0x1c85c>
+ 40000a8:	00000e50 	udf	#3664
+ 40000ac:	0000001c 	udf	#28
+ 40000b0:	00000030 	udf	#48
+ 40000b4:	ffffff94 	.inst	0xffffff94 ; undefined
+ 40000b8:	00000020 	udf	#32
+ 40000bc:	100e4100 	adr	x0, 401c8dc <UART0DR+0x1c874>
+ 40000c0:	019e029d 	.inst	0x019e029d ; undefined
+ 40000c4:	0eddde46 	.inst	0x0eddde46 ; undefined
+ 40000c8:	00000000 	udf	#0
 
 Disassembly of section .comment:
 
@@ -92,6 +94,6 @@ Disassembly of section .comment:
   10:	2d302e33 	stp	s19, s11, [x17, #-128]
   14:	75627531 	.inst	0x75627531 ; undefined
   18:	3175746e 	adds	w14, w3, #0xd5d, lsl #12
-  1c:	30312029 	adr	x9, 62421 <stack_top+0x61331>
-  20:	302e332e 	adr	x14, 5c685 <stack_top+0x5b595>
+  1c:	30312029 	adr	x9, 62421 <sleep+0x6240d>
+  20:	302e332e 	adr	x14, 5c685 <sleep+0x5c671>
 	...

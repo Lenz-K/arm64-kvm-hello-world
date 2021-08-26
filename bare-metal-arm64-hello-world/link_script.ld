@@ -1,12 +1,18 @@
 ENTRY(_startup)
+
+MEMORY
+{
+    RAM ( rxw ) : ORIGIN = 0x04000000, LENGTH = 0x02000000
+}
+
 SECTIONS
 {
-	. = 0x0;
-	.startup . : { startup.o(.text) }
-	.text : { *(.text) }
-	.data : { *(.data) }
-	.bss : { *(.bss COMMON) }
-	. = ALIGN(8);
-	. = . + 0x1000; /* 4kB of stack memory */
-	stack_top = .;
+    . = 0x0;
+    .startup . : { startup.o(.text) }
+    .text : { *(.text) }
+    .data : { *(.data) }
+    .bss : { *(.bss COMMON) }
+    . = ALIGN(8);
+    . = 0x0401FFFF;
+    stack_top = .;
 }

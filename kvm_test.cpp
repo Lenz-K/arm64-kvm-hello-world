@@ -91,20 +91,6 @@ uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t 
  */
 int main() {
     int ret;
-    const uint32_t code[] = {
-            /* Add two registers */
-            0xd2800281, /* mov	x1, #0x14 */
-            0xd28002c2, /* mov	x2, #0x16 */
-            0x8b020023, /* add	x3, x1, x2 */
-
-            /* Supervisor Call Exit */
-            //0xd2800000, /* mov x0, #0x0 */
-            //0x52800ba8, /* mov w8, #0x5d */
-            //0xd4000001, /* svc #0x0 */
-
-            /* Wait for Interrupt */
-            0xd503207f, /* wfi */
-    };
     uint8_t *mem;
     size_t mmap_size;
     struct kvm_run *run;
@@ -145,9 +131,48 @@ int main() {
      *
      */
     check_vm_extension(KVM_CAP_USER_MEMORY, "KVM_CAP_USER_MEMORY");
+
+    printf("Loading ROM\n");
     mem = allocate_memory_to_vm(0x1000, 0x0);
-    memcpy(mem, code, sizeof(code));
+    FILE *fp = fopen("/home/lenz/kvm-test/bare-metal-arm64-hello-world/rom", "rb");
+    if (fp == NULL) {
+        printf("Could not open file: %s\n", strerror(errno));
+        return -1;
+    }
+    fseek(fp, 0L, SEEK_END);
+    long size = ftell(fp) / 4;
+    rewind(fp);
+
+    uint8_t instruction[4];
+    uint32_t rom[size];
+    for (int i = 0; i < size; i++) {
+        fread(instruction, sizeof(instruction[0]), 4, fp);
+        rom[i] = instruction[3]<<3*8 | instruction[2]<<2*8 | instruction[1]<<8 | instruction[0];
+        printf("%08X\n", rom[i]);
+    }
+    fclose(fp);
+    memcpy(mem, rom, sizeof(rom));
+
+    printf("Loading RAM\n");
     mem = allocate_memory_to_vm(0x1000, 0x04000000);
+    fp = fopen("/home/lenz/kvm-test/bare-metal-arm64-hello-world/ram", "rb");
+    if (fp == NULL) {
+        printf("Could not open file: %s\n", strerror(errno));
+        return -1;
+    }
+    fseek(fp, 0L, SEEK_END);
+    size = ftell(fp) / 4;
+    rewind(fp);
+
+    uint32_t ram[size];
+    for (int i = 0; i < size; i++) {
+        fread(instruction, sizeof(instruction[0]), 4, fp);
+        ram[i] = instruction[3]<<3*8 | instruction[2]<<2*8 | instruction[1]<<8 | instruction[0];
+        printf("%08X\n", ram[i]);
+    }
+    fclose(fp);
+    memcpy(mem, ram, sizeof(ram));
+
     mem = allocate_memory_to_vm(0x1000, 0x04010000);
     mem = allocate_memory_to_vm(0x1000, 0x0401F000);
     check_vm_extension(KVM_CAP_READONLY_MEM, "KVM_CAP_READONLY_MEM");
@@ -184,7 +209,8 @@ int main() {
         ret = ioctl(vcpufd, KVM_RUN, NULL);
         printf("Loop %d\n", i);
         if (ret < 0) {
-            printf("System call 'KVM_RUN' failed: %s\n", strerror(errno));
+            printf("%d %d %d %d\n", EINTR, ENOEXEC, ENOSYS, EPERM);
+            printf("System call 'KVM_RUN' failed: %d - %s\n", errno, strerror(errno));
             return ret;
         }
 
@@ -198,6 +224,17 @@ int main() {
                 break;
             case KVM_EXIT_MMIO:
                 printf("KVM_EXIT_MMIO\n");
+                printf("Is write: %d\n", run->mmio.is_write);
+
+                if (run->mmio.is_write) {
+                    printf("Length: %d\n", run->mmio.len);
+                    uint64_t data;
+                    for (int j = 0; j < run->mmio.len; j++) {
+                        data = data | run->mmio.data[j]<<8*j;
+                    }
+                    printf("Guest wrote %08lX to 0x%08llX\n", data, run->mmio.phys_addr);
+                }
+
                 break;
             case KVM_EXIT_INTR:
                 printf("KVM_EXIT_INTR\n");
