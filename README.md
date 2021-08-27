@@ -32,7 +32,7 @@ On another architecture it can be emulated. Remove `-enable-kvm` and replace `-c
 
 ## 4. bare-metal-arm64-hello-world
 
-The folder `bare-metal-arm64-hello-world` contains an adaption of `bare-metal-arm64-hello-world-qemu`, that shall be run in a VM by the KVM test program ([5. KVM Test Program](https://github.com/Lenz-K/kvm-test#5-kvm-test-program)).   
+The folder `bare-metal-arm64-hello-world` contains an adaption of `bare-metal-arm64-hello-world-qemu`, that is run in a VM by the KVM test program ([5. KVM Test Program](https://github.com/Lenz-K/kvm-test#5-kvm-test-program)).   
 It can be compiled with the script `compile.sh`.
 
 ### Sources
@@ -42,7 +42,7 @@ It can be compiled with the script `compile.sh`.
 
 ## 5. KVM Test Program
 
-The cpp-file `kvm_test.cpp` contains a program that shall setup an ARM64 VM and execute the `bare-metal-arm64-hello-world` program in the VM.
+The cpp-file `kvm_test.cpp` contains a program that sets up an ARM64 VM and executes the `bare-metal-arm64-hello-world` program in the VM.
 As a starting point, [this](https://lwn.net/Articles/658512/) KVM test program for x86 was used.
 It is explained [here](https://lwn.net/Articles/658511/).
 To change the code from x86 to ARM64 the [KVM API Documentation](https://www.kernel.org/doc/html/latest/virt/kvm/api.html) was used.
