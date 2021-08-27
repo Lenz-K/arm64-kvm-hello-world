@@ -54,7 +54,7 @@ Disassembly of section .rodata:
  4000068:	10000000 	adr	x0, 4000068 <UART0DR>
  400006c:	00000000 	udf	#0
  4000070:	6c6c6548 	ldnp	d8, d25, [x10, #-320]
- 4000074:	6f77206f 	umlal2	v15.4s, v3.8h, v7.h[3]
+ 4000074:	6f57206f 	umlal2	v15.4s, v3.8h, v7.h[1]
  4000078:	21646c72 	.inst	0x21646c72 ; undefined
  400007c:	Address 0x000000000400007c is out of bounds.
 
