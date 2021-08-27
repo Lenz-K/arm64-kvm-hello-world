@@ -87,6 +87,11 @@ uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t 
     return mem;
 }
 
+/**
+ * Handles a MMIO Exit from KVM_RUN.
+ *
+ * @param buffer_index The index to write to in the MMIO buffer.
+ */
 void mmio_exit_handler(int buffer_index) {
     printf("Is write: %d\n", run->mmio.is_write);
 
@@ -96,7 +101,7 @@ void mmio_exit_handler(int buffer_index) {
         for (int j = 0; j < run->mmio.len; j++) {
             data = data | run->mmio.data[j]<<8*j;
         }
-        //char c =
+
         mmio_buffer[buffer_index] = data;
         printf("Guest wrote %08lX to 0x%08llX\n", data, run->mmio.phys_addr);
     }
@@ -142,7 +147,7 @@ int main() {
      * Start      | Name  | Description
      * -----------+-------+------------
      * 0x10000000 | MMIO  |
-     * 0x0401F000 | Stack | grows downwards, so the SP is initially 0x0401FFFF
+     * 0x0401F000 | Stack | grows downwards, so the SP is initially 0x04020000
      * 0x04010000 | Heap  | grows upward
      * 0x04000000 | RAM   |
      * 0x00000000 | ROM   |
@@ -158,20 +163,22 @@ int main() {
         return -1;
     }
     fseek(fp, 0L, SEEK_END);
-    long size = ftell(fp) / 4;
+    long n_instructions = ftell(fp) / 4; // One instruction is 4 Bytes long
     rewind(fp);
 
     uint8_t instruction[4];
-    uint32_t rom[size];
-    for (int i = 0; i < size; i++) {
+    uint32_t rom_code[n_instructions];
+    // Read one instruction after another
+    for (int i = 0; i < n_instructions; i++) {
         fread(instruction, sizeof(instruction[0]), 4, fp);
-        rom[i] = instruction[3]<<3*8 | instruction[2]<<2*8 | instruction[1]<<8 | instruction[0];
-        printf("%08X\n", rom[i]);
+        rom_code[i] = instruction[3]<<3*8 | instruction[2]<<2*8 | instruction[1]<<8 | instruction[0]; // We need to reorder the Bytes
+        printf("%08X\n", rom_code[i]);
     }
     fclose(fp);
-    memcpy(mem, rom, sizeof(rom));
+    // Copy the code into the VM memory
+    memcpy(mem, rom_code, sizeof(rom_code));
 
-    printf("Loading RAM\n");
+    printf("\nLoading RAM\n");
     mem = allocate_memory_to_vm(0x1000, 0x04000000);
     fp = fopen("/home/lenz/kvm-test/bare-metal-arm64-hello-world/ram", "rb");
     if (fp == NULL) {
@@ -179,17 +186,17 @@ int main() {
         return -1;
     }
     fseek(fp, 0L, SEEK_END);
-    size = ftell(fp) / 4;
+    n_instructions = ftell(fp) / 4;
     rewind(fp);
 
-    uint32_t ram[size];
-    for (int i = 0; i < size; i++) {
+    uint32_t ram_code[n_instructions];
+    for (int i = 0; i < n_instructions; i++) {
         fread(instruction, sizeof(instruction[0]), 4, fp);
-        ram[i] = instruction[3]<<3*8 | instruction[2]<<2*8 | instruction[1]<<8 | instruction[0];
-        printf("%08X\n", ram[i]);
+        ram_code[i] = instruction[3]<<3*8 | instruction[2]<<2*8 | instruction[1]<<8 | instruction[0];
+        printf("%08X\n", ram_code[i]);
     }
     fclose(fp);
-    memcpy(mem, ram, sizeof(ram));
+    memcpy(mem, ram_code, sizeof(ram_code));
 
     mem = allocate_memory_to_vm(0x1000, 0x04010000);
     mem = allocate_memory_to_vm(0x1000, 0x0401F000);
