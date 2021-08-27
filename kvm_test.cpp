@@ -13,10 +13,14 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#define MAX_VM_RUNS 13
+
 using namespace std;
 
 int kvm, vmfd, vcpufd;
 u_int32_t slot_count = 0;
+struct kvm_run *run;
+char mmio_buffer[MAX_VM_RUNS];
 
 /**
  * Execute an ioctl with the given arguments. Exit the program if there is an error.
@@ -83,6 +87,21 @@ uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t 
     return mem;
 }
 
+void mmio_exit_handler(int buffer_index) {
+    printf("Is write: %d\n", run->mmio.is_write);
+
+    if (run->mmio.is_write) {
+        printf("Length: %d\n", run->mmio.len);
+        uint64_t data = 0;
+        for (int j = 0; j < run->mmio.len; j++) {
+            data = data | run->mmio.data[j]<<8*j;
+        }
+        //char c =
+        mmio_buffer[buffer_index] = data;
+        printf("Guest wrote %08lX to 0x%08llX\n", data, run->mmio.phys_addr);
+    }
+}
+
 /**
  * This is a KVM test program for ARM64.
  * As a starting point, this KVM test program for x86 was used: https://lwn.net/Articles/658512/
@@ -93,7 +112,6 @@ int main() {
     int ret;
     uint8_t *mem;
     size_t mmap_size;
-    struct kvm_run *run;
 
     /* Get the KVM file descriptor */
     kvm = open("/dev/kvm", O_RDWR | O_CLOEXEC);
@@ -204,13 +222,12 @@ int main() {
     /* Repeatedly run code and handle VM exits. */
     printf("Running code\n");
     bool done = false;
-    for (int i = 0; i < 10 && !done; i++) {
-        printf("Loop %d\n", i);
+    for (int i = 0; i < MAX_VM_RUNS && !done; i++) {
+        printf("\nLoop %d:\n", i+1);
         ret = ioctl(vcpufd, KVM_RUN, NULL);
-        printf("Loop %d\n", i);
         if (ret < 0) {
-            printf("%d %d %d %d\n", EINTR, ENOEXEC, ENOSYS, EPERM);
             printf("System call 'KVM_RUN' failed: %d - %s\n", errno, strerror(errno));
+            printf("Error Numbers: EINTR=%d; ENOEXEC=%d; ENOSYS=%d; EPERM=%d\n", EINTR, ENOEXEC, ENOSYS, EPERM);
             return ret;
         }
 
@@ -224,17 +241,7 @@ int main() {
                 break;
             case KVM_EXIT_MMIO:
                 printf("KVM_EXIT_MMIO\n");
-                printf("Is write: %d\n", run->mmio.is_write);
-
-                if (run->mmio.is_write) {
-                    printf("Length: %d\n", run->mmio.len);
-                    uint64_t data;
-                    for (int j = 0; j < run->mmio.len; j++) {
-                        data = data | run->mmio.data[j]<<8*j;
-                    }
-                    printf("Guest wrote %08lX to 0x%08llX\n", data, run->mmio.phys_addr);
-                }
-
+                mmio_exit_handler(i);
                 break;
             case KVM_EXIT_INTR:
                 printf("KVM_EXIT_INTR\n");
@@ -248,6 +255,11 @@ int main() {
             default:
                 printf("KVM_EXIT other\n");
         }
+    }
+
+    printf("\nVM MMIO Output:\n");
+    for(int i = 0; mmio_buffer[i] != '\0'; i++) {
+        printf("%c", mmio_buffer[i]);
     }
 
     return 0;

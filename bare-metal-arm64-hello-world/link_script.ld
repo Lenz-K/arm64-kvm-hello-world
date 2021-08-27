@@ -13,6 +13,6 @@ SECTIONS
     .data : { *(.data) }
     .bss : { *(.bss COMMON) }
     . = ALIGN(8);
-    . = 0x0401FFFF;
+    . = 0x04020000;
     stack_top = .;
 }

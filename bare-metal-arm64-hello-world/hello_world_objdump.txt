@@ -5,18 +5,16 @@ hello_world.elf:     file format elf64-littleaarch64
 Disassembly of section .startup:
 
 0000000000000000 <_startup>:
-   0:	5800011e 	ldr	x30, 20 <sleep+0xc>
+   0:	580000de 	ldr	x30, 18 <sleep+0xc>
    4:	910003df 	mov	sp, x30
-   8:	d2a20000 	mov	x0, #0x10000000            	// #268435456
-   c:	f900001e 	str	x30, [x0]
-  10:	9500000e 	bl	4000048 <main>
+   8:	95000010 	bl	4000048 <main>
 
-0000000000000014 <sleep>:
-  14:	d503207f 	wfi
-  18:	17ffffff 	b	14 <sleep>
+000000000000000c <sleep>:
+   c:	d503207f 	wfi
+  10:	17ffffff 	b	c <sleep>
+  14:	00000000 	udf	#0
+  18:	04020000 	.inst	0x04020000 ; undefined
   1c:	00000000 	udf	#0
-  20:	0401ffff 	msb	z31.b, p7/m, z1.b, z31.b
-  24:	00000000 	udf	#0
 
 Disassembly of section .text:
 
@@ -63,7 +61,7 @@ Disassembly of section .rodata:
 
 Disassembly of section .eh_frame:
 
-0000000004000080 <stack_top-0x1ff7f>:
+0000000004000080 <stack_top-0x1ff80>:
  4000080:	00000010 	udf	#16
  4000084:	00000000 	udf	#0
  4000088:	00527a01 	.inst	0x00527a01 ; undefined
@@ -94,6 +92,6 @@ Disassembly of section .comment:
   10:	2d302e33 	stp	s19, s11, [x17, #-128]
   14:	75627531 	.inst	0x75627531 ; undefined
   18:	3175746e 	adds	w14, w3, #0xd5d, lsl #12
-  1c:	30312029 	adr	x9, 62421 <sleep+0x6240d>
-  20:	302e332e 	adr	x14, 5c685 <sleep+0x5c671>
+  1c:	30312029 	adr	x9, 62421 <sleep+0x62415>
+  20:	302e332e 	adr	x14, 5c685 <sleep+0x5c679>
 	...
