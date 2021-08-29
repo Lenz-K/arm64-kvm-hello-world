@@ -10,11 +10,11 @@ ld -T link_script.ld startup.o hello_world.o -o hello_world.elf
 # Create a text file with the objdump output of the elf file
 objdump -D hello_world.elf > hello_world_objdump.txt
 
-objcopy -j.startup -O binary hello_world.elf rom
+objcopy -j.startup -O binary hello_world.elf rom.dat
 
-objcopy -j.text -j.rodata -j.eh_frame -O binary hello_world.elf ram
+objcopy -j.text -j.rodata -j.eh_frame -O binary hello_world.elf ram.dat
 
 echo ROM:
-hexdump rom
+hexdump rom.dat
 echo RAM:
-hexdump ram
+hexdump ram.dat

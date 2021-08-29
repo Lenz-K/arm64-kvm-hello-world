@@ -13,7 +13,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define MAX_VM_RUNS 13
+#define MAX_VM_RUNS 20
 
 using namespace std;
 
@@ -107,6 +107,10 @@ void mmio_exit_handler(int buffer_index) {
     }
 }
 
+void system_event_exit_handler() {
+    printf("Type: %d\n", run->system_event.type);
+}
+
 /**
  * This is a KVM test program for ARM64.
  * As a starting point, this KVM test program for x86 was used: https://lwn.net/Articles/658512/
@@ -157,7 +161,7 @@ int main() {
 
     printf("Loading ROM\n");
     mem = allocate_memory_to_vm(0x1000, 0x0);
-    FILE *fp = fopen("/home/lenz/kvm-test/bare-metal-arm64-hello-world/rom", "rb");
+    FILE *fp = fopen("/home/lenz/kvm-test/bare-metal-arm64-hello-world/rom.dat", "rb");
     if (fp == NULL) {
         printf("Could not open file: %s\n", strerror(errno));
         return -1;
@@ -180,7 +184,7 @@ int main() {
 
     printf("\nLoading RAM\n");
     mem = allocate_memory_to_vm(0x1000, 0x04000000);
-    fp = fopen("/home/lenz/kvm-test/bare-metal-arm64-hello-world/ram", "rb");
+    fp = fopen("/home/lenz/kvm-test/bare-metal-arm64-hello-world/ram.dat", "rb");
     if (fp == NULL) {
         printf("Could not open file: %s\n", strerror(errno));
         return -1;
@@ -249,6 +253,10 @@ int main() {
             case KVM_EXIT_MMIO:
                 printf("KVM_EXIT_MMIO\n");
                 mmio_exit_handler(i);
+                break;
+            case KVM_EXIT_SYSTEM_EVENT:
+                printf("KVM_EXIT_SYSTEM_EVENT\n");
+                system_event_exit_handler();
                 break;
             case KVM_EXIT_INTR:
                 printf("KVM_EXIT_INTR\n");
