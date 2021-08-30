@@ -27,4 +27,3 @@ ram.dat: hello_world.elf
 
 clean:
 	rm -f hello_world.o startup.o hello_world.elf rom.dat ram.dat hello_world_objdump.txt
-
