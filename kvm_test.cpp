@@ -1,17 +1,9 @@
 #include <sys/ioctl.h>
 #include <string>
-#include <stdio.h>
-#include <fcntl.h>
 #include <linux/kvm.h>
-#include <cerrno>
 #include <fcntl.h>
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 
 #define MAX_VM_RUNS 20
 #define END_SIGNAL 0xaaaaaaaa
