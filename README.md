@@ -1,6 +1,6 @@
 # About
 
-All code is compiled and tested on an ARMv8-A processor running Ubuntu 21.04 using GNU Make 4.3.
+All code is compiled and tested on a Cortex-A72 (ARMv8-A) processor running Ubuntu 21.04 using GNU Make 4.3.
 
 
 # Contents
@@ -13,7 +13,7 @@ It is an adaption of [this](https://github.com/freedomtan/aarch64-bare-metal-qem
 ```
 qemu-system-aarch64 -M virt -cpu host -enable-kvm -nographic -kernel hello_world.elf
 ```
-On another architecture it can be emulated. Remove `-enable-kvm` and replace `-cpu host` with `-cpu cortex-a57` for example.
+On another architecture it can be emulated. Remove `-enable-kvm` and replace `-cpu host` with `-cpu cortex-a72` for example.
 
 
 ## 2. bare-metal-arm64
