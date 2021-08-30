@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <cstring>
 #include <sys/mman.h>
+#include <stdarg.h>
 
 #define MAX_VM_RUNS 20
 #define END_SIGNAL 0xaaaaaaaa
@@ -24,8 +25,13 @@ char mmio_buffer[MAX_VM_RUNS];
  * @param name The name of the ioctl request for error output.
  * @return The return value of the ioctl.
  */
-int ioctl_exit_on_error(int file_descriptor, unsigned long request, void *argument, string name) {
-    int ret = ioctl(file_descriptor, request, argument);
+int ioctl_exit_on_error(int file_descriptor, unsigned long request, string name, ...) {
+    va_list ap;
+    va_start(ap, name);
+    void *arg = va_arg(ap, void *);
+    va_end(ap);
+    
+    int ret = ioctl(file_descriptor, request, arg);
     if (ret < 0) {
         printf("System call '%s' failed: %s\n", name.c_str(), strerror(errno));
         exit(ret);
@@ -76,7 +82,7 @@ uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t 
             .userspace_addr = (uint64_t) mem,
             };
     slot_count++;
-    ioctl_exit_on_error(vmfd, KVM_SET_USER_MEMORY_REGION, &region, "KVM_SET_USER_MEMORY_REGION");
+    ioctl_exit_on_error(vmfd, KVM_SET_USER_MEMORY_REGION, "KVM_SET_USER_MEMORY_REGION", &region);
     return mem;
 }
 
@@ -139,7 +145,7 @@ int main() {
 
     /* Create a VM and receive the VM file descriptor */
     printf("Creating VM\n");
-    vmfd = ioctl_exit_on_error(kvm, KVM_CREATE_VM, (unsigned long) 0, "KVM_CREATE_VM");
+    vmfd = ioctl_exit_on_error(kvm, KVM_CREATE_VM, "KVM_CREATE_VM", (unsigned long) 0);
 
     printf("Setting up memory\n");
     /*
@@ -206,19 +212,19 @@ int main() {
 
     /* Create a virtual CPU and receive its file descriptor */
     printf("Creating VCPU\n");
-    vcpufd = ioctl_exit_on_error(vmfd, KVM_CREATE_VCPU, (unsigned long) 0, "KVM_CREATE_VCPU");
+    vcpufd = ioctl_exit_on_error(vmfd, KVM_CREATE_VCPU, "KVM_CREATE_VCPU", (unsigned long) 0);
 
     /* Get CPU information for VCPU init*/
     printf("Retrieving physical CPU information\n");
     struct kvm_vcpu_init preferred_target;
-    ioctl_exit_on_error(vmfd, KVM_ARM_PREFERRED_TARGET, &preferred_target, "KVM_ARM_PREFERRED_TARGET");
+    ioctl_exit_on_error(vmfd, KVM_ARM_PREFERRED_TARGET, "KVM_ARM_PREFERRED_TARGET", &preferred_target);
 
     /* Initialize VCPU */
     printf("Initializing VCPU\n");
-    ioctl_exit_on_error(vcpufd, KVM_ARM_VCPU_INIT, &preferred_target, "KVM_ARM_VCPU_INIT");
+    ioctl_exit_on_error(vcpufd, KVM_ARM_VCPU_INIT, "KVM_ARM_VCPU_INIT", &preferred_target);
 
     /* Map the shared kvm_run structure and following data. */
-    ret = ioctl_exit_on_error(kvm, KVM_GET_VCPU_MMAP_SIZE, NULL, "KVM_GET_VCPU_MMAP_SIZE");
+    ret = ioctl_exit_on_error(kvm, KVM_GET_VCPU_MMAP_SIZE, "KVM_GET_VCPU_MMAP_SIZE", NULL);
     mmap_size = ret;
     if (mmap_size < sizeof(*run))
         printf("KVM_GET_VCPU_MMAP_SIZE unexpectedly small");
