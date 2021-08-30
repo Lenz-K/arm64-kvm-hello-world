@@ -14,6 +14,7 @@
 #include <sys/types.h>
 
 #define MAX_VM_RUNS 20
+#define END_SIGNAL 0xaaaaaaaa
 
 using namespace std;
 
@@ -92,7 +93,7 @@ uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t 
  *
  * @param buffer_index The index to write to in the MMIO buffer.
  */
-void mmio_exit_handler(int buffer_index) {
+void mmio_exit_handler(int buffer_index, bool *done) {
     printf("Is write: %d\n", run->mmio.is_write);
 
     if (run->mmio.is_write) {
@@ -102,7 +103,11 @@ void mmio_exit_handler(int buffer_index) {
             data = data | run->mmio.data[j]<<8*j;
         }
 
-        mmio_buffer[buffer_index] = data;
+        if ((uint32_t )data == END_SIGNAL) {
+            *done = true;
+        } else {
+            mmio_buffer[buffer_index] = data;
+        }
         printf("Guest wrote %08lX to 0x%08llX\n", data, run->mmio.phys_addr);
     }
 }
@@ -161,7 +166,7 @@ int main() {
 
     printf("Loading ROM\n");
     mem = allocate_memory_to_vm(0x1000, 0x0);
-    FILE *fp = fopen("/home/lenz/kvm-test/bare-metal-arm64-hello-world/rom.dat", "rb");
+    FILE *fp = fopen("/home/lenz/kvm-test/bare-metal-arm64/rom.dat", "rb");
     if (fp == NULL) {
         printf("Could not open file: %s\n", strerror(errno));
         return -1;
@@ -184,7 +189,7 @@ int main() {
 
     printf("\nLoading RAM\n");
     mem = allocate_memory_to_vm(0x1000, 0x04000000);
-    fp = fopen("/home/lenz/kvm-test/bare-metal-arm64-hello-world/ram.dat", "rb");
+    fp = fopen("/home/lenz/kvm-test/bare-metal-arm64/ram.dat", "rb");
     if (fp == NULL) {
         printf("Could not open file: %s\n", strerror(errno));
         return -1;
@@ -252,7 +257,7 @@ int main() {
                 break;
             case KVM_EXIT_MMIO:
                 printf("KVM_EXIT_MMIO\n");
-                mmio_exit_handler(i);
+                mmio_exit_handler(i, &done);
                 break;
             case KVM_EXIT_SYSTEM_EVENT:
                 printf("KVM_EXIT_SYSTEM_EVENT\n");
