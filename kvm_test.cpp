@@ -5,6 +5,7 @@
 #include <cstring>
 #include <sys/mman.h>
 #include <stdarg.h>
+#include "bare-metal-arm64/memory.h"
 
 #define MAX_VM_RUNS 20
 #define END_SIGNAL 0xaaaaaaaa
@@ -161,53 +162,23 @@ int main() {
      *
      */
     check_vm_extension(KVM_CAP_USER_MEMORY, "KVM_CAP_USER_MEMORY");
-
-    printf("Loading ROM\n");
+    /* ROM Memory */
     mem = allocate_memory_to_vm(0x1000, 0x0);
-    FILE *fp = fopen("/home/lenz/kvm-test/bare-metal-arm64/rom.dat", "rb");
-    if (fp == NULL) {
-        printf("Could not open file: %s\n", strerror(errno));
-        return -1;
-    }
-    fseek(fp, 0L, SEEK_END);
-    long n_instructions = ftell(fp) / 4; // One instruction is 4 Bytes long
-    rewind(fp);
-
-    uint8_t instruction[4];
-    uint32_t rom_code[n_instructions];
-    // Read one instruction after another
-    for (int i = 0; i < n_instructions; i++) {
-        fread(instruction, sizeof(instruction[0]), 4, fp);
-        rom_code[i] = instruction[3]<<3*8 | instruction[2]<<2*8 | instruction[1]<<8 | instruction[0]; // We need to reorder the Bytes
-        printf("%08X\n", rom_code[i]);
-    }
-    fclose(fp);
     // Copy the code into the VM memory
     memcpy(mem, rom_code, sizeof(rom_code));
 
-    printf("\nLoading RAM\n");
+    /* RAM Memory */
     mem = allocate_memory_to_vm(0x1000, 0x04000000);
-    fp = fopen("/home/lenz/kvm-test/bare-metal-arm64/ram.dat", "rb");
-    if (fp == NULL) {
-        printf("Could not open file: %s\n", strerror(errno));
-        return -1;
-    }
-    fseek(fp, 0L, SEEK_END);
-    n_instructions = ftell(fp) / 4;
-    rewind(fp);
-
-    uint32_t ram_code[n_instructions];
-    for (int i = 0; i < n_instructions; i++) {
-        fread(instruction, sizeof(instruction[0]), 4, fp);
-        ram_code[i] = instruction[3]<<3*8 | instruction[2]<<2*8 | instruction[1]<<8 | instruction[0];
-        printf("%08X\n", ram_code[i]);
-    }
-    fclose(fp);
+    // Copy the code into the VM memory
     memcpy(mem, ram_code, sizeof(ram_code));
 
+    /* Heap Memory */
     mem = allocate_memory_to_vm(0x1000, 0x04010000);
+    /* Stack Memory */
     mem = allocate_memory_to_vm(0x1000, 0x0401F000);
-    check_vm_extension(KVM_CAP_READONLY_MEM, "KVM_CAP_READONLY_MEM");
+
+    /* MMIO Memory */
+    check_vm_extension(KVM_CAP_READONLY_MEM, "KVM_CAP_READONLY_MEM"); // This will cause a write to 0x10000000, to result in a KVM_EXIT_MMIO.
     mem = allocate_memory_to_vm(0x1000, 0x10000000, KVM_MEM_READONLY);
 
     /* Create a virtual CPU and receive its file descriptor */

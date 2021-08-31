@@ -1,7 +1,7 @@
-kvm_test: bare-metal-arm64
+kvm_test: memory.h
 	$(CXX) -o kvm_test kvm_test.cpp -lstdc++
 
-bare-metal-arm64:
+memory.h:
 	$(MAKE) -C ./bare-metal-arm64
 
 clean:

@@ -1,4 +1,4 @@
-all: rom.dat ram.dat
+all: memory.h
 
 hello_world.elf: link_script.ld startup.o hello_world.o
 	# Link the two object files to an elf file
@@ -24,7 +24,11 @@ ram.dat: hello_world.elf
 	objcopy -j.text -j.rodata -j.eh_frame -O binary hello_world.elf ram.dat
 	echo RAM:
 	hexdump ram.dat
+	
+memory.h: create_rom.c rom.dat ram.dat
+	$(CXX) -o create_rom create_rom.c
+	./create_rom
 
 clean:
-	rm -f hello_world.o startup.o hello_world.elf rom.dat ram.dat hello_world_objdump.txt
+	rm -f hello_world.o startup.o hello_world.elf rom.dat ram.dat hello_world_objdump.txt create_rom memory.h
 
