@@ -5,7 +5,7 @@
 #include <cstring>
 #include <sys/mman.h>
 #include <stdarg.h>
-#include "bare-metal-arm64/memory.h"
+#include "bare-metal-aarch64/memory.h"
 
 #define MAX_VM_RUNS 20
 #define END_SIGNAL 0xaaaaaaaa

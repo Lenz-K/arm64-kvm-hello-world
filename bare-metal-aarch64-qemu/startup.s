@@ -8,7 +8,6 @@ system_off:
     ldr x0, =0x84000008     /* SYSTEM_OFF function ID */
     hvc #0                  /* Hypervisor call */
 
-sleep:
+sleep:                      /* This point should not be reached */
     wfi                     /* Wait for interrupt */
     b sleep                 /* Endless loop */
-
