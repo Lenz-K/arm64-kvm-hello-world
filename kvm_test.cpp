@@ -8,7 +8,6 @@
 #include "bare-metal-aarch64/memory.h"
 
 #define MAX_VM_RUNS 20
-#define END_SIGNAL 0xaaaaaaaa
 
 using namespace std;
 
@@ -88,31 +87,40 @@ uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t 
 }
 
 /**
- * Handles a MMIO Exit from KVM_RUN.
+ * Handles a MMIO exit from KVM_RUN.
  *
  * @param buffer_index The index to write to in the MMIO buffer.
  */
-void mmio_exit_handler(int buffer_index, bool *done) {
+void mmio_exit_handler(int buffer_index) {
     printf("Is write: %d\n", run->mmio.is_write);
 
     if (run->mmio.is_write) {
         printf("Length: %d\n", run->mmio.len);
         uint64_t data = 0;
         for (int j = 0; j < run->mmio.len; j++) {
-            data = data | run->mmio.data[j]<<8*j;
+            data |= run->mmio.data[j]<<8*j;
         }
 
-        if ((uint32_t )data == END_SIGNAL) {
-            *done = true;
-        } else {
-            mmio_buffer[buffer_index] = data;
-        }
+        mmio_buffer[buffer_index] = data;
         printf("Guest wrote %08lX to 0x%08llX\n", data, run->mmio.phys_addr);
     }
 }
 
-void system_event_exit_handler() {
-    printf("Type: %d\n", run->system_event.type);
+/**
+ * Prints the reason of a system event exit from KVM_RUN.
+ */
+void print_system_event_exit_reason() {
+    switch (run->system_event.type) {
+    case KVM_SYSTEM_EVENT_SHUTDOWN:
+        printf("Cause: Shutdown\n");
+        break;
+    case KVM_SYSTEM_EVENT_RESET:
+        printf("Cause: Reset\n");
+        break;
+    case KVM_SYSTEM_EVENT_CRASH:
+        printf("Cause: Crash\n");
+        break;
+    }
 }
 
 /**
@@ -185,10 +193,14 @@ int main() {
     printf("Creating VCPU\n");
     vcpufd = ioctl_exit_on_error(vmfd, KVM_CREATE_VCPU, "KVM_CREATE_VCPU", (unsigned long) 0);
 
-    /* Get CPU information for VCPU init*/
+    /* Get CPU information for VCPU init */
     printf("Retrieving physical CPU information\n");
     struct kvm_vcpu_init preferred_target;
     ioctl_exit_on_error(vmfd, KVM_ARM_PREFERRED_TARGET, "KVM_ARM_PREFERRED_TARGET", &preferred_target);
+
+    /* Enable the PSCI v0.2 CPU feature, to be able to shutdown the VM */
+    check_vm_extension(KVM_CAP_ARM_PSCI_0_2, "KVM_CAP_ARM_PSCI_0_2");
+    preferred_target.features[0] |= 1 << KVM_ARM_VCPU_PSCI_0_2;
 
     /* Initialize VCPU */
     printf("Initializing VCPU\n");
@@ -206,8 +218,8 @@ int main() {
 
     /* Repeatedly run code and handle VM exits. */
     printf("Running code\n");
-    bool done = false;
-    for (int i = 0; i < MAX_VM_RUNS && !done; i++) {
+    bool shut_down = false;
+    for (int i = 0; i < MAX_VM_RUNS && !shut_down; i++) {
         printf("\nLoop %d:\n", i+1);
         ret = ioctl(vcpufd, KVM_RUN, NULL);
         if (ret < 0) {
@@ -219,18 +231,19 @@ int main() {
         switch (run->exit_reason) {
             case KVM_EXIT_HLT:
                 printf("KVM_EXIT_HLT\n");
-                done = true;
                 break;
             case KVM_EXIT_IO:
                 printf("KVM_EXIT_IO\n");
                 break;
             case KVM_EXIT_MMIO:
                 printf("KVM_EXIT_MMIO\n");
-                mmio_exit_handler(i, &done);
+                mmio_exit_handler(i);
                 break;
             case KVM_EXIT_SYSTEM_EVENT:
+                // This happens when the VCPU has done a HVC based PSCI call.
                 printf("KVM_EXIT_SYSTEM_EVENT\n");
-                system_event_exit_handler();
+                print_system_event_exit_reason();
+                shut_down = true;
                 break;
             case KVM_EXIT_INTR:
                 printf("KVM_EXIT_INTR\n");

@@ -5,32 +5,22 @@ hello_world.elf:     file format elf64-littleaarch64
 Disassembly of section .startup:
 
 0000000000000000 <_startup>:
-   0:	580001de 	ldr	x30, 38 <sleep+0x10>
+   0:	5800011e 	ldr	x30, 20 <sleep+0xc>
    4:	910003df 	mov	sp, x30
    8:	95000010 	bl	4000048 <main>
 
 000000000000000c <system_off>:
-   c:	580001bd 	ldr	x29, 40 <sleep+0x18>
-  10:	580001c0 	ldr	x0, 48 <sleep+0x20>
-  14:	d4000002 	hvc	#0x0
-  18:	580001c0 	ldr	x0, 50 <sleep+0x28>
-  1c:	d4000002 	hvc	#0x0
-  20:	18000080 	ldr	w0, 30 <sleep+0x8>
-  24:	b90003a0 	str	w0, [x29]
+   c:	580000e0 	ldr	x0, 28 <sleep+0x14>
+  10:	d4000002 	hvc	#0x0
 
-0000000000000028 <sleep>:
-  28:	d503207f 	wfi
-  2c:	17ffffff 	b	28 <sleep>
-  30:	aaaaaaaa 	orn	x10, x21, x10, asr #42
-  34:	00000000 	udf	#0
-  38:	04020000 	.inst	0x04020000 ; undefined
-  3c:	00000000 	udf	#0
-  40:	10000000 	adr	x0, 40 <sleep+0x18>
-  44:	00000000 	udf	#0
-  48:	84000002 	ld1sb	{z2.s}, p0/z, [x0, z0.s, uxtw]
-  4c:	00000000 	udf	#0
-  50:	84000008 	ld1sb	{z8.s}, p0/z, [x0, z0.s, uxtw]
-  54:	00000000 	udf	#0
+0000000000000014 <sleep>:
+  14:	d503207f 	wfi
+  18:	17ffffff 	b	14 <sleep>
+  1c:	00000000 	udf	#0
+  20:	04020000 	.inst	0x04020000 ; undefined
+  24:	00000000 	udf	#0
+  28:	84000008 	ld1sb	{z8.s}, p0/z, [x0, z0.s, uxtw]
+  2c:	00000000 	udf	#0
 
 Disassembly of section .text:
 
@@ -108,6 +98,6 @@ Disassembly of section .comment:
   10:	2d302e33 	stp	s19, s11, [x17, #-128]
   14:	75627531 	.inst	0x75627531 ; undefined
   18:	3175746e 	adds	w14, w3, #0xd5d, lsl #12
-  1c:	30312029 	adr	x9, 62421 <sleep+0x623f9>
-  20:	302e332e 	adr	x14, 5c685 <sleep+0x5c65d>
+  1c:	30312029 	adr	x9, 62421 <sleep+0x6240d>
+  20:	302e332e 	adr	x14, 5c685 <sleep+0x5c671>
 	...
