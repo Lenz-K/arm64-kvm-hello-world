@@ -4,7 +4,7 @@ hello_world.elf:     file format elf64-littleaarch64
 
 Disassembly of section .startup:
 
-0000000000000000 <_startup>:
+0000000000000000 <_start>:
    0:	5800011e 	ldr	x30, 20 <sleep+0xc>
    4:	910003df 	mov	sp, x30
    8:	95000010 	bl	4000048 <main>

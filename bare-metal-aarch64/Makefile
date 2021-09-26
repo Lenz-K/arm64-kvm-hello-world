@@ -16,14 +16,10 @@ hello_world.o: hello_world.c
 rom.dat: hello_world.elf
 	# Create binary file with ROM contents
 	objcopy -j.startup -O binary hello_world.elf rom.dat
-	echo ROM:
-	hexdump rom.dat
 
 ram.dat: hello_world.elf
 	# Create binary file with RAM contents
 	objcopy -j.text -j.rodata -j.eh_frame -O binary hello_world.elf ram.dat
-	echo RAM:
-	hexdump ram.dat
 	
 memory.h: create_rom.c rom.dat ram.dat
 	$(CXX) -o create_rom create_rom.c

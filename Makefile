@@ -5,5 +5,6 @@ memory.h:
 	$(MAKE) -C ./bare-metal-aarch64
 
 clean:
+	$(MAKE) clean -C ./bare-metal-aarch64
 	rm -f kvm_test
 
