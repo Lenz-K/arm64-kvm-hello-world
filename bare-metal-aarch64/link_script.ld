@@ -16,3 +16,4 @@ SECTIONS
     . = 0x04020000;
     stack_top = .;
 }
+

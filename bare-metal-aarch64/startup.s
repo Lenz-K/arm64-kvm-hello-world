@@ -1,6 +1,6 @@
 .global _start
 _start:
-    ldr x30, =stack_top	    /* Retrieve initial stack address */
+    ldr x30, =stack_top     /* Retrieve initial stack address */
     mov sp, x30             /* Set stack address */
     bl main                 /* Branch to main() */
 

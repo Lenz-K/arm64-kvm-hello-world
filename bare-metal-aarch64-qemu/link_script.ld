@@ -1,4 +1,5 @@
-ENTRY(_startup)
+ENTRY(_start)
+
 SECTIONS
 {
 	. = 0x40000000;
@@ -10,3 +11,4 @@ SECTIONS
 	. = . + 0x1000; /* 4kB of stack memory */
 	stack_top = .;
 }
+
