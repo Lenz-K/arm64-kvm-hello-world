@@ -124,10 +124,10 @@ void print_system_event_exit_reason() {
 }
 
 /**
- * This is a KVM test program for ARM64.
+ * This is a KVM test program for AArch64.
  * As a starting point, this KVM test program for x86 was used: https://lwn.net/Articles/658512/
  * It is explained here: https://lwn.net/Articles/658511/
- * To change the code from x86 to ARM64 the KVM API Documentation was used: https://www.kernel.org/doc/html/latest/virt/kvm/api.html
+ * To change the code from x86 to AArch64 the KVM API Documentation (https://www.kernel.org/doc/html/latest/virt/kvm/api.html) and the QEMU source code were used.
  */
 int main() {
     int ret;

@@ -42,8 +42,8 @@ void read_instructions(const char *pathname) {
 }
 
 /**
- * Reads the files rom.dat and ram.dat, reorders the instructions correctly
- * and then generates a header file memory.h that contains the instructions in an array.
+ * Reads the files 'rom.dat' and 'ram.dat', reorders the instructions correctly
+ * and generates a header file 'memory.h' that contains the instructions in an array.
  */
 int main() {
     mem_fp = open_file("memory.h", "w+");

@@ -34,4 +34,4 @@ One that needs to be loaded into ROM, the other into RAM.
 The cpp-file [kvm_test.cpp](https://github.com/Lenz-K/arm64-kvm-hello-world/blob/main/kvm_test.cpp) contains a program that sets up an AArch64 VM and executes the `bare-metal-aarch64/hello-world.elf` program in the VM.
 As a starting point, [this](https://lwn.net/Articles/658512/) KVM test program for x86 was used.
 It is explained [here](https://lwn.net/Articles/658511/).
-To change the code from x86 to AArch64 the [KVM API Documentation](https://www.kernel.org/doc/html/latest/virt/kvm/api.html) and the QEMU source code was used.
+To change the code from x86 to AArch64 the [KVM API Documentation](https://www.kernel.org/doc/html/latest/virt/kvm/api.html) and the QEMU source code were used.
