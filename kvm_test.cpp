@@ -12,8 +12,10 @@
 using namespace std;
 
 int kvm, vmfd, vcpufd;
-u_int32_t slot_count = 0;
+u_int32_t memory_slot_count = 0;
 struct kvm_run *run;
+
+int mmio_buffer_index = 0;
 char mmio_buffer[MAX_VM_RUNS];
 
 /**
@@ -75,23 +77,21 @@ uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t 
     }
 
     struct kvm_userspace_memory_region region = {
-            .slot = slot_count,
+            .slot = memory_slot_count,
             .flags = flags,
             .guest_phys_addr = guest_addr,
             .memory_size = memory_len,
             .userspace_addr = (uint64_t) mem,
             };
-    slot_count++;
+    memory_slot_count++;
     ioctl_exit_on_error(vmfd, KVM_SET_USER_MEMORY_REGION, "KVM_SET_USER_MEMORY_REGION", &region);
     return mem;
 }
 
 /**
  * Handles a MMIO exit from KVM_RUN.
- *
- * @param buffer_index The index to write to in the MMIO buffer.
  */
-void mmio_exit_handler(int buffer_index) {
+void mmio_exit_handler() {
     printf("Is write: %d\n", run->mmio.is_write);
 
     if (run->mmio.is_write) {
@@ -101,7 +101,8 @@ void mmio_exit_handler(int buffer_index) {
             data |= run->mmio.data[j]<<8*j;
         }
 
-        mmio_buffer[buffer_index] = data;
+        mmio_buffer[mmio_buffer_index] = data;
+        mmio_buffer_index++;
         printf("Guest wrote %08lX to 0x%08llX\n", data, run->mmio.phys_addr);
     }
 }
@@ -237,7 +238,7 @@ int main() {
                 break;
             case KVM_EXIT_MMIO:
                 printf("KVM_EXIT_MMIO\n");
-                mmio_exit_handler(i);
+                mmio_exit_handler();
                 break;
             case KVM_EXIT_SYSTEM_EVENT:
                 // This happens when the VCPU has done a HVC based PSCI call.
@@ -260,7 +261,7 @@ int main() {
     }
 
     printf("\nVM MMIO Output:\n");
-    for(int i = 0; mmio_buffer[i] != '\0'; i++) {
+    for(int i = 0; i < mmio_buffer_index; i++) {
         printf("%c", mmio_buffer[i]);
     }
 
