@@ -24,7 +24,6 @@ char mmio_buffer[MAX_VM_RUNS];
  *
  * @param file_descriptor
  * @param request
- * @param argument
  * @param name The name of the ioctl request for error output.
  * @return The return value of the ioctl.
  */
@@ -93,7 +92,7 @@ uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t 
  * Handles a MMIO exit from KVM_RUN.
  */
 void mmio_exit_handler() {
-    printf("Is write: %d\n", run->mmio.is_write);
+    printf("Is Write: %d\n", run->mmio.is_write);
 
     if (run->mmio.is_write) {
         printf("Length: %d\n", run->mmio.len);
@@ -104,7 +103,7 @@ void mmio_exit_handler() {
 
         mmio_buffer[mmio_buffer_index] = data;
         mmio_buffer_index++;
-        printf("Guest wrote %08lX to 0x%08llX\n", data, run->mmio.phys_addr);
+        printf("Guest wrote 0x%08lX to 0x%08llX\n", data, run->mmio.phys_addr);
     }
 }
 
@@ -231,7 +230,7 @@ int main() {
     printf("Running code\n");
     bool shut_down = false;
     for (int i = 0; i < MAX_VM_RUNS && !shut_down; i++) {
-        printf("\nLoop %d:\n", i+1);
+        printf("\nKVM_RUN Loop %d:\n", i+1);
         ret = ioctl(vcpufd, KVM_RUN, NULL);
         if (ret < 0) {
             printf("System call 'KVM_RUN' failed: %d - %s\n", errno, strerror(errno));
@@ -240,33 +239,27 @@ int main() {
         }
 
         switch (run->exit_reason) {
-            case KVM_EXIT_HLT:
-                printf("KVM_EXIT_HLT\n");
-                break;
-            case KVM_EXIT_IO:
-                printf("KVM_EXIT_IO\n");
-                break;
             case KVM_EXIT_MMIO:
-                printf("KVM_EXIT_MMIO\n");
+                printf("Exit Reason: KVM_EXIT_MMIO\n");
                 mmio_exit_handler();
                 break;
             case KVM_EXIT_SYSTEM_EVENT:
                 // This happens when the VCPU has done a HVC based PSCI call.
-                printf("KVM_EXIT_SYSTEM_EVENT\n");
+                printf("Exit Reason: KVM_EXIT_SYSTEM_EVENT\n");
                 print_system_event_exit_reason();
                 shut_down = true;
                 break;
             case KVM_EXIT_INTR:
-                printf("KVM_EXIT_INTR\n");
+                printf("Exit Reason: KVM_EXIT_INTR\n");
                 break;
             case KVM_EXIT_FAIL_ENTRY:
-                printf("KVM_EXIT_FAIL_ENTRY\n");
+                printf("Exit Reason: KVM_EXIT_FAIL_ENTRY\n");
                 break;
             case KVM_EXIT_INTERNAL_ERROR:
-                printf("KVM_EXIT_INTERNAL_ERROR\n");
+                printf("Exit Reason: KVM_EXIT_INTERNAL_ERROR\n");
                 break;
             default:
-                printf("KVM_EXIT other\n");
+                printf("Exit Reason: other\n");
         }
     }
 
