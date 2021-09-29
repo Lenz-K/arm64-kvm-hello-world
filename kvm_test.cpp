@@ -2,6 +2,7 @@
 #include <string>
 #include <linux/kvm.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <cstring>
 #include <sys/mman.h>
 #include <stdarg.h>
@@ -125,6 +126,15 @@ void print_system_event_exit_reason() {
 }
 
 /**
+ * Closes a file descriptor and therefore frees its resources.
+ */
+void close_fd(int fd) {
+    int ret = close(fd);
+    if (ret == -1)
+        printf("Error while closing file: %s\n", strerror(errno));
+}
+
+/**
  * This is a KVM test program for AArch64.
  * As a starting point, this KVM test program for x86 was used: https://lwn.net/Articles/658512/
  * It is explained here: https://lwn.net/Articles/658511/
@@ -199,7 +209,7 @@ int main() {
     struct kvm_vcpu_init preferred_target;
     ioctl_exit_on_error(vmfd, KVM_ARM_PREFERRED_TARGET, "KVM_ARM_PREFERRED_TARGET", &preferred_target);
 
-    /* Enable the PSCI v0.2 CPU feature, to be able to shutdown the VM */
+    /* Enable the PSCI v0.2 CPU feature, to be able to shut down the VM */
     check_vm_extension(KVM_CAP_ARM_PSCI_0_2, "KVM_CAP_ARM_PSCI_0_2");
     preferred_target.features[0] |= 1 << KVM_ARM_VCPU_PSCI_0_2;
 
@@ -264,6 +274,10 @@ int main() {
     for(int i = 0; i < mmio_buffer_index; i++) {
         printf("%c", mmio_buffer[i]);
     }
+
+    close_fd(vcpufd);
+    close_fd(vmfd);
+    close_fd(kvm);
 
     return 0;
 }
