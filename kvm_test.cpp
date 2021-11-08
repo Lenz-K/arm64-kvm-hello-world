@@ -43,7 +43,7 @@ int ioctl_exit_on_error(int file_descriptor, unsigned long request, string name,
     
     int ret = ioctl(file_descriptor, request, arg);
     if (ret < 0) {
-        printf("System call '%s' failed: %s\n", name.c_str(), strerror(errno));
+        printf("System call '%s' failed: %s - %d\n", name.c_str(), strerror(errno), ret);
         exit(ret);
     }
     return ret;
@@ -278,6 +278,16 @@ int main() {
     run = static_cast<kvm_run *>(void_mem);
     if (!run)
         printf("Error while mmap vcpu");
+        
+    /* Set program counter to entry address */
+    printf("Setting program counter to entry address 0x%08lX\n", entry_addr);
+    check_vm_extension(KVM_CAP_ONE_REG, "KVM_CAP_ONE_REG");
+    uint64_t pc_index = offsetof(struct kvm_regs, regs.pc) / sizeof(__u32);
+    uint64_t pc_id = KVM_REG_ARM64 | KVM_REG_SIZE_U64 | KVM_REG_ARM_CORE | pc_index;
+    struct kvm_one_reg pc = {.id = pc_id, .addr = (uint64_t)&entry_addr};
+    ret = ioctl_exit_on_error(vcpufd, KVM_SET_ONE_REG, "KVM_SET_ONE_REG", &pc);
+    if (ret < 0)
+        return ret;
 
     /* Repeatedly run code and handle VM exits. */
     printf("Running code\n");
