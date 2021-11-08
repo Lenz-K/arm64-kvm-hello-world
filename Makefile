@@ -1,7 +1,7 @@
-kvm_test: memory.h
-	$(CXX) -o kvm_test kvm_test.cpp -lstdc++
+kvm_test: hello_world.elf
+	$(CXX) -o kvm_test kvm_test.cpp ./elf-loader/elf_loader.c -lstdc++ -lelf
 
-memory.h:
+hello_world.elf:
 	$(MAKE) -C ./bare-metal-aarch64
 
 clean:

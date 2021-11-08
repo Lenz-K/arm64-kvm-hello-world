@@ -6,9 +6,11 @@
 #include <cstring>
 #include <sys/mman.h>
 #include <stdarg.h>
-#include "bare-metal-aarch64/memory.h"
+#include "elf-loader/elf_loader.h"
 
 #define MAX_VM_RUNS 20
+#define N_MEMORY_MAPPINGS 2
+#define MEMORY_BLOCK_SIZE 0x1000
 
 using namespace std;
 
@@ -18,6 +20,12 @@ struct kvm_run *run;
 
 int mmio_buffer_index = 0;
 char mmio_buffer[MAX_VM_RUNS];
+
+struct memory_mapping {
+    uint64_t guest_phys_addr;
+    uint64_t *userspace_addr;
+};
+memory_mapping memory_mappings[N_MEMORY_MAPPINGS];
 
 /**
  * Execute an ioctl with the given arguments. Exit the program if there is an error.
@@ -35,7 +43,7 @@ int ioctl_exit_on_error(int file_descriptor, unsigned long request, string name,
     
     int ret = ioctl(file_descriptor, request, arg);
     if (ret < 0) {
-        printf("System call '%s' failed: %s\n", name.c_str(), strerror(errno));
+        printf("System call '%s' failed: %s - %d\n", name.c_str(), strerror(errno), ret);
         exit(ret);
     }
     return ret;
@@ -68,9 +76,9 @@ int check_vm_extension(int extension, string name) {
  * @param guest_addr The address of the memory in the guest.
  * @return A pointer to the allocated memory.
  */
-uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t flags = 0) {
+uint64_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t flags = 0) {
     void *void_mem = mmap(NULL, memory_len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    uint8_t *mem = static_cast<uint8_t *>(void_mem);
+    uint64_t *mem = static_cast<uint64_t *>(void_mem);
     if (!mem) {
         printf("Error while allocating guest memory: %s\n", strerror(errno));
         exit(-1);
@@ -86,6 +94,44 @@ uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t 
     memory_slot_count++;
     ioctl_exit_on_error(vmfd, KVM_SET_USER_MEMORY_REGION, "KVM_SET_USER_MEMORY_REGION", &region);
     return mem;
+}
+
+/**
+ * Copies the required sections of the ELF file into the memory of the VM.
+ *
+ * @return The entry address of the loaded program or -1 if an error occurred.
+ */
+uint64_t copy_elf_into_memory() {
+    string filename = "bare-metal-aarch64/hello_world.elf";
+    // Open the ELF file that will be loaded into memory
+    if (open_elf(filename.c_str()) != 0)
+        return -1;
+
+    Elf64_Word *code;
+    size_t memsz;
+    Elf64_Addr target_addr;
+    // Iterate over the segments in the ELF file and load them into the memory of the VM
+    while (has_next_section_to_load()) {
+        if (get_next_section_to_load(&code, &memsz, &target_addr) < 0)
+            return -1;
+
+        // Iterate over the memory mappings from high addresses to lower addresses.
+        for (int i = N_MEMORY_MAPPINGS-1; i >= 0; i--) {
+            // As soon as one mapping has a lower guest address as the target address, the right mapping is found.
+            if (memory_mappings[i].guest_phys_addr <= target_addr) {
+                // There can be an offset between memory mapping and the target address.
+                uint64_t offset = target_addr - memory_mappings[i].guest_phys_addr;
+                // Copy the code into the VM memory
+                memcpy(memory_mappings[i].userspace_addr + offset, code, memsz);
+                printf("Section loaded. Host adress: %p - Guest address: 0x%08lX\n", memory_mappings[i].userspace_addr + offset, target_addr);
+                break;
+            }
+        }
+    }
+
+    uint64_t entry_addr = get_entry_address();
+    close_elf();
+    return entry_addr;
 }
 
 /**
@@ -141,7 +187,7 @@ void close_fd(int fd) {
  */
 int main() {
     int ret;
-    uint8_t *mem;
+    uint64_t *mem;
     size_t mmap_size;
 
     /* Get the KVM file descriptor */
@@ -169,35 +215,42 @@ int main() {
     printf("Setting up memory\n");
     /*
      * MEMORY MAP
+     * One memory block of 0x1000 B will be assigned to every part of the memory:
      *
      * Start      | Name  | Description
      * -----------+-------+------------
-     * 0x10000000 | MMIO  |
-     * 0x0401F000 | Stack | grows downwards, so the SP is initially 0x04020000
-     * 0x04010000 | Heap  | grows upward
-     * 0x04000000 | RAM   |
      * 0x00000000 | ROM   |
-     *
+     * 0x04000000 | RAM   |
+     * 0x04010000 | Heap  | increases
+     * 0x0401F000 | Stack | decreases, so the stack pointer is initially 0x04020000
+     * 0x10000000 | MMIO  |
      */
     check_vm_extension(KVM_CAP_USER_MEMORY, "KVM_CAP_USER_MEMORY");
+
     /* ROM Memory */
-    mem = allocate_memory_to_vm(0x1000, 0x0);
-    // Copy the code into the VM memory
-    memcpy(mem, rom_code, sizeof(rom_code));
+    uint64_t rom_guest_addr = 0x0;
+    mem = allocate_memory_to_vm(MEMORY_BLOCK_SIZE, rom_guest_addr);
+    memory_mappings[0].userspace_addr = mem;
+    memory_mappings[0].guest_phys_addr = rom_guest_addr;
 
     /* RAM Memory */
-    mem = allocate_memory_to_vm(0x1000, 0x04000000);
-    // Copy the code into the VM memory
-    memcpy(mem, ram_code, sizeof(ram_code));
+    uint64_t ram_guest_addr = 0x04000000;
+    mem = allocate_memory_to_vm(MEMORY_BLOCK_SIZE, ram_guest_addr);
+    memory_mappings[1].userspace_addr = mem;
+    memory_mappings[1].guest_phys_addr = ram_guest_addr;
+
+    uint64_t entry_addr = copy_elf_into_memory();
+    if (entry_addr < 0)
+        return entry_addr;
 
     /* Heap Memory */
-    mem = allocate_memory_to_vm(0x1000, 0x04010000);
+    mem = allocate_memory_to_vm(MEMORY_BLOCK_SIZE, 0x04010000);
     /* Stack Memory */
-    mem = allocate_memory_to_vm(0x1000, 0x0401F000);
+    mem = allocate_memory_to_vm(MEMORY_BLOCK_SIZE, 0x0401F000);
 
     /* MMIO Memory */
     check_vm_extension(KVM_CAP_READONLY_MEM, "KVM_CAP_READONLY_MEM"); // This will cause a write to 0x10000000, to result in a KVM_EXIT_MMIO.
-    mem = allocate_memory_to_vm(0x1000, 0x10000000, KVM_MEM_READONLY);
+    mem = allocate_memory_to_vm(MEMORY_BLOCK_SIZE, 0x10000000, KVM_MEM_READONLY);
 
     /* Create a virtual CPU and receive its file descriptor */
     printf("Creating VCPU\n");
@@ -225,6 +278,16 @@ int main() {
     run = static_cast<kvm_run *>(void_mem);
     if (!run)
         printf("Error while mmap vcpu");
+        
+    /* Set program counter to entry address */
+    printf("Setting program counter to entry address 0x%08lX\n", entry_addr);
+    check_vm_extension(KVM_CAP_ONE_REG, "KVM_CAP_ONE_REG");
+    uint64_t pc_index = offsetof(struct kvm_regs, regs.pc) / sizeof(__u32);
+    uint64_t pc_id = KVM_REG_ARM64 | KVM_REG_SIZE_U64 | KVM_REG_ARM_CORE | pc_index;
+    struct kvm_one_reg pc = {.id = pc_id, .addr = (uint64_t)&entry_addr};
+    ret = ioctl_exit_on_error(vcpufd, KVM_SET_ONE_REG, "KVM_SET_ONE_REG", &pc);
+    if (ret < 0)
+        return ret;
 
     /* Repeatedly run code and handle VM exits. */
     printf("Running code\n");
