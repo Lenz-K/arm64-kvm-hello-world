@@ -1,4 +1,4 @@
-all: memory.h
+all: hello_world.elf
 
 hello_world.elf: link_script.ld startup.o hello_world.o
 	# Link the two object files to an elf file
@@ -13,18 +13,5 @@ startup.o: startup.s
 hello_world.o: hello_world.c
 	$(CC) -c -o hello_world.o hello_world.c
 
-rom.dat: hello_world.elf
-	# Create binary file with ROM contents
-	objcopy -j.startup -O binary hello_world.elf rom.dat
-
-ram.dat: hello_world.elf
-	# Create binary file with RAM contents
-	objcopy -j.text -j.rodata -j.eh_frame -O binary hello_world.elf ram.dat
-	
-memory.h: create_rom.c rom.dat ram.dat
-	$(CXX) -o create_rom create_rom.c
-	./create_rom
-
 clean:
-	rm -f hello_world.o startup.o hello_world.elf rom.dat ram.dat hello_world_objdump.txt create_rom memory.h
-
+	rm -f hello_world.o startup.o hello_world.elf hello_world_objdump.txt
