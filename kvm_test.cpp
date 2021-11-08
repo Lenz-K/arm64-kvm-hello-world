@@ -6,7 +6,7 @@
 #include <cstring>
 #include <sys/mman.h>
 #include <stdarg.h>
-#include "elf_loader/elf_loader.h"
+#include "elf-loader/elf_loader.h"
 
 #define MAX_VM_RUNS 20
 #define N_MEMORY_MAPPINGS 2
