@@ -8,7 +8,7 @@
  * @param filename The name of the ELF file to open.
  * @return 0 on success, -1 if an error occurred.
  */
-int open_elf(char *filename);
+int open_elf(const char *filename);
 
 /**
  * Checks whether there is another section to load or not.

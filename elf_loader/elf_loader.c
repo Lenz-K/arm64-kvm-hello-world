@@ -13,8 +13,8 @@ size_t phdrnum;
 int section = -1;
 int has_next = 0;
 
-int open_elf(char *filename) {
-    printf("Opening ELF file.\n");
+int open_elf(const char *filename) {
+    printf("Opening ELF file\n");
     if (elf_version(EV_CURRENT) == EV_NONE) {
         printf("ELF library initialization failed.\n");
         return -1;
@@ -44,7 +44,7 @@ int open_elf(char *filename) {
         printf("elf_getphdrnum() failed.\n");
         return -1;
     }
-    printf("It contains %zu sections.\n", phdrnum);
+    printf("It contains %zu sections\n", phdrnum);
 
     if ((phdr = elf64_getphdr(e)) == NULL) {
         printf("elf64_getphdr() failed.\n");
@@ -62,9 +62,9 @@ int has_next_section_to_load() {
 
         has_next = do_load;
         if (do_load) {
-            printf("\nSection %d needs to be loaded.\n", section);
+            printf("Section %d needs to be loaded\n", section);
         } else {
-            printf("\nSection %d does not need to be loaded.\n", section);
+            printf("Section %d does not need to be loaded\n", section);
         }
     }
 
@@ -79,7 +79,7 @@ int get_next_section_to_load(Elf64_Word **code, size_t *memsz, Elf64_Addr *vaddr
     }
 
     Elf_Data *data = elf_getdata_rawchunk(e, phdr[section].p_offset, phdr[section].p_filesz, ELF_T_WORD);
-    *code = data->d_buf;
+    *code = (Elf64_Word *)data->d_buf;
     *memsz = data->d_size;
     *vaddress = phdr[section].p_vaddr;
 
@@ -98,7 +98,7 @@ Elf64_Addr get_entry_address() {
 }
 
 int print_elf_info() {
-    printf("\nPrinting information about the ELF file.\n");
+    printf("\nPrinting information about the ELF file\n");
     printf("Executable Header:\n");
     Elf64_Ehdr *ehdr;
 
@@ -166,7 +166,7 @@ int print_elf_info() {
 }
 
 void close_elf() {
-    printf("Closing ELF file.\n");
+    printf("Closing ELF file\n");
     elf_end(e);
     close(fd);
 }

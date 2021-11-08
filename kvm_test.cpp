@@ -23,7 +23,7 @@ char mmio_buffer[MAX_VM_RUNS];
 
 struct memory_mapping {
     uint64_t guest_phys_addr;
-    uint64_t userspace_addr;
+    uint64_t *userspace_addr;
 };
 memory_mapping memory_mappings[N_MEMORY_MAPPINGS];
 
@@ -76,9 +76,9 @@ int check_vm_extension(int extension, string name) {
  * @param guest_addr The address of the memory in the guest.
  * @return A pointer to the allocated memory.
  */
-uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t flags = 0) {
+uint64_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t flags = 0) {
     void *void_mem = mmap(NULL, memory_len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    uint8_t *mem = static_cast<uint8_t *>(void_mem);
+    uint64_t *mem = static_cast<uint64_t *>(void_mem);
     if (!mem) {
         printf("Error while allocating guest memory: %s\n", strerror(errno));
         exit(-1);
@@ -102,8 +102,9 @@ uint8_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t 
  * @return The entry address of the loaded program or -1 if an error occurred.
  */
 uint64_t copy_elf_into_memory() {
+    string filename = "bare-metal-aarch64/hello_world.elf";
     // Open the ELF file that will be loaded into memory
-    if (open_elf("bare-metal-aarch64/hello_world.elf") != 0)
+    if (open_elf(filename.c_str()) != 0)
         return -1;
 
     Elf64_Word *code;
@@ -122,6 +123,7 @@ uint64_t copy_elf_into_memory() {
                 uint64_t offset = target_addr - memory_mappings[i].guest_phys_addr;
                 // Copy the code into the VM memory
                 memcpy(memory_mappings[i].userspace_addr + offset, code, memsz);
+                printf("Section loaded. Host adress: %p - Guest address: 0x%08lX\n", memory_mappings[i].userspace_addr + offset, target_addr);
                 break;
             }
         }
@@ -185,7 +187,7 @@ void close_fd(int fd) {
  */
 int main() {
     int ret;
-    uint8_t *mem;
+    uint64_t *mem;
     size_t mmap_size;
 
     /* Get the KVM file descriptor */
