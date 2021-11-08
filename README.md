@@ -19,7 +19,7 @@ On another architecture it can be emulated. Remove `-enable-kvm` and replace `-c
 ## 2. bare-metal-aarch64
 
 The folder `bare-metal-aarch64` contains an adaption of `bare-metal-aarch64-qemu`.
-The purpose of it, is to be run in a VM by the KVM test program ([4. KVM Test Program](https://github.com/Lenz-K/arm64-kvm-hello-world#3-kvm-test-program)).
+The purpose of it, is to be run in a VM by the KVM test program ([4. KVM Test Program](https://github.com/Lenz-K/arm64-kvm-hello-world#4-kvm-test-program)).
 The build process ([Makefile](https://github.com/Lenz-K/arm64-kvm-hello-world/blob/main/bare-metal-aarch64/Makefile)) creates an ELF file.
 
 ### Sources
@@ -29,7 +29,7 @@ The build process ([Makefile](https://github.com/Lenz-K/arm64-kvm-hello-world/bl
 ## 3. elf-loader
 
 The folder `elf-loader` contains a c-program that is used
-(by [4. KVM Test Program](https://github.com/Lenz-K/arm64-kvm-hello-world#3-kvm-test-program))
+(by [4. KVM Test Program](https://github.com/Lenz-K/arm64-kvm-hello-world#4-kvm-test-program))
 to load the required sections of an ELF file into the memory of the VM.
 
 ### Sources
