@@ -1,20 +1,20 @@
 #ifndef OPTEE_CLIENT_KVM_ELF_LOADER_H
 #define OPTEE_CLIENT_KVM_ELF_LOADER_H
 
-#include <libelf.h>
+#include <cstdint>
 
 /**
  * Opens an ELF file for loading. This must be called before any other function.
- * @param filename The name of the ELF file to open.
+ * @param path The absolut path and name of the ELF file to open.
  * @return 0 on success, -1 if an error occurred.
  */
-int open_elf(const char *filename);
+int open_elf(const char *path);
 
 /**
  * Checks whether there is another section to load or not.
  * @return 1 if there is another section to load, 0 if not.
  */
-int has_next_section_to_load();
+int has_next_section_to_load(void);
 
 /**
  * Returns information for the next section to load.
@@ -22,28 +22,21 @@ int has_next_section_to_load();
  * to verify whether there is another section to load or not.
  *
  * @param code The pointer to the code block to load.
- * @param memsz The size of the code block to load in bytes.
+ * @param memory_size The size of the code block to load in bytes.
  * @param vaddress The virtual address where the code should be loaded to.
  * @return 0 on success, -1 if an error occurred.
  */
-int get_next_section_to_load(Elf64_Word **code, size_t *memsz, Elf64_Addr *vaddress);
+int get_next_section_to_load(uint32_t **code, size_t *memory_size, uint64_t *vaddress);
 
 /**
  * Returns the entry address of the program, when it is loaded into memory.
- * @return The entry address or -1 if an error occurred.
+ * @return The entry address.
  */
-Elf64_Addr get_entry_address();
-
-/**
- * Prints information stored in the opened ELF file.
- *
- * @return 0 on success, -1 if an error occurred.
- */
-int print_elf_info();
+uint64_t get_entry_address(void);
 
 /**
  * Closes an ELF file after loading and frees allocated resources.
  */
-void close_elf();
+void close_elf(void);
 
 #endif //OPTEE_CLIENT_KVM_ELF_LOADER_H

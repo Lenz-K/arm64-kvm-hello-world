@@ -15,17 +15,19 @@
 using namespace std;
 
 int kvm, vmfd, vcpufd;
-u_int32_t memory_slot_count = 0;
 struct kvm_run *run;
+u_int32_t memory_slot_count = 0;
 
-int mmio_buffer_index = 0;
-char mmio_buffer[MAX_VM_RUNS];
-
+// Memory mappings between host and guest
 struct memory_mapping {
     uint64_t guest_phys_addr;
+    size_t memory_size;
     uint64_t *userspace_addr;
 };
 memory_mapping memory_mappings[N_MEMORY_MAPPINGS];
+
+int mmio_buffer_index = 0;
+char mmio_buffer[MAX_VM_RUNS];
 
 /**
  * Execute an ioctl with the given arguments. Exit the program if there is an error.
@@ -97,41 +99,75 @@ uint64_t *allocate_memory_to_vm(size_t memory_len, uint64_t guest_addr, uint32_t
 }
 
 /**
+ * Finds the memory mapping for the specified target_addr.
+ *
+ * @param target_addr The guest address that will be searched for in the memory mappings.
+ * @return Returns the index of the memory mapping or -1 if no mapping was found.
+ */
+int find_mapping_for_section(uint64_t target_addr) {
+    // Iterate over the memory mappings from high addresses to lower addresses.
+    for (int i = N_MEMORY_MAPPINGS-1; i >= 0; i--) {
+        // As soon as one mapping has a lower guest address as the target address, the right mapping is found.
+        if (memory_mappings[i].guest_phys_addr <= target_addr) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+/**
+ * Copies the code into the memory of the specified memory mapping.
+ *
+ * @param code The code blok that will be copied into the VM memory.
+ * @param memsz The size of the code block.
+ * @param target_addr The VM memory address that the code will be copied to.
+ * @param mmi The index of the memory mapping that will be used for copying.
+ * @return Returns the index of the memory mapping or -1 if no mapping was found.
+ */
+int copy_section_into_memory(uint32_t *code, size_t memsz, uint64_t target_addr, int mmi) {
+    // There can be an offset between memory mapping and the target address.
+    uint64_t offset = target_addr - memory_mappings[mmi].guest_phys_addr;
+
+    // If the offset plus the code size is bigger than the memory mapping size, do nothing.
+    if (offset + memsz > memory_mappings[mmi].memory_size) {
+        printf("Memory mapping too small. Mapping offset: 0x%08lX - Mapping size: 0x%08lX\n", offset, memory_mappings[mmi].memory_size);
+        return -1;
+    }
+
+    // Copy the code into the VM memory
+    memcpy(memory_mappings[mmi].userspace_addr + offset, code, memsz);
+    printf("Section loaded. Host address: %p - Guest address: 0x%08lX\n", memory_mappings[mmi].userspace_addr + offset, target_addr);
+    return 0;
+}
+
+/**
  * Copies the required sections of the ELF file into the memory of the VM.
  *
- * @return The entry address of the loaded program or -1 if an error occurred.
+ * @return 0 on success, -1 if an error occurred.
  */
-uint64_t copy_elf_into_memory() {
-    string filename = "bare-metal-aarch64/hello_world.elf";
+int copy_elf_into_memory() {
+    string elf_name = "bare-metal-aarch64/hello_world.elf";
     // Open the ELF file that will be loaded into memory
-    if (open_elf(filename.c_str()) != 0)
+    if (open_elf(elf_name.c_str()) != 0)
         return -1;
 
-    Elf64_Word *code;
+    uint32_t *code;
     size_t memsz;
-    Elf64_Addr target_addr;
+    uint64_t target_addr;
     // Iterate over the segments in the ELF file and load them into the memory of the VM
     while (has_next_section_to_load()) {
         if (get_next_section_to_load(&code, &memsz, &target_addr) < 0)
             return -1;
-
-        // Iterate over the memory mappings from high addresses to lower addresses.
-        for (int i = N_MEMORY_MAPPINGS-1; i >= 0; i--) {
-            // As soon as one mapping has a lower guest address as the target address, the right mapping is found.
-            if (memory_mappings[i].guest_phys_addr <= target_addr) {
-                // There can be an offset between memory mapping and the target address.
-                uint64_t offset = target_addr - memory_mappings[i].guest_phys_addr;
-                // Copy the code into the VM memory
-                memcpy(memory_mappings[i].userspace_addr + offset, code, memsz);
-                printf("Section loaded. Host adress: %p - Guest address: 0x%08lX\n", memory_mappings[i].userspace_addr + offset, target_addr);
-                break;
-            }
-        }
+        int mmi = find_mapping_for_section(target_addr);
+        if (mmi < 0)
+            return -1;
+        if (copy_section_into_memory(code, memsz, target_addr, mmi) < 0)
+            return -1;
     }
 
-    uint64_t entry_addr = get_entry_address();
     close_elf();
-    return entry_addr;
+    return 0;
 }
 
 /**
@@ -228,20 +264,21 @@ int main() {
     check_vm_extension(KVM_CAP_USER_MEMORY, "KVM_CAP_USER_MEMORY");
 
     /* ROM Memory */
-    uint64_t rom_guest_addr = 0x0;
-    mem = allocate_memory_to_vm(MEMORY_BLOCK_SIZE, rom_guest_addr);
+    
+    memory_mappings[0].guest_phys_addr = 0x0;
+    memory_mappings[0].memory_size = MEMORY_BLOCK_SIZE;
+    mem = allocate_memory_to_vm(memory_mappings[0].memory_size, memory_mappings[0].guest_phys_addr);
     memory_mappings[0].userspace_addr = mem;
-    memory_mappings[0].guest_phys_addr = rom_guest_addr;
 
     /* RAM Memory */
-    uint64_t ram_guest_addr = 0x04000000;
-    mem = allocate_memory_to_vm(MEMORY_BLOCK_SIZE, ram_guest_addr);
+    memory_mappings[1].guest_phys_addr = 0x04000000;
+    memory_mappings[1].memory_size = MEMORY_BLOCK_SIZE;
+    mem = allocate_memory_to_vm(memory_mappings[1].memory_size, memory_mappings[1].guest_phys_addr);
     memory_mappings[1].userspace_addr = mem;
-    memory_mappings[1].guest_phys_addr = ram_guest_addr;
 
-    uint64_t entry_addr = copy_elf_into_memory();
-    if (entry_addr < 0)
-        return entry_addr;
+    ret = copy_elf_into_memory();
+    if (ret < 0)
+        return ret;
 
     /* Heap Memory */
     mem = allocate_memory_to_vm(MEMORY_BLOCK_SIZE, 0x04010000);
@@ -280,10 +317,11 @@ int main() {
         printf("Error while mmap vcpu");
         
     /* Set program counter to entry address */
-    printf("Setting program counter to entry address 0x%08lX\n", entry_addr);
     check_vm_extension(KVM_CAP_ONE_REG, "KVM_CAP_ONE_REG");
     uint64_t pc_index = offsetof(struct kvm_regs, regs.pc) / sizeof(__u32);
     uint64_t pc_id = KVM_REG_ARM64 | KVM_REG_SIZE_U64 | KVM_REG_ARM_CORE | pc_index;
+    uint64_t entry_addr = get_entry_address();
+    printf("Setting program counter to entry address 0x%08lX\n", entry_addr);
     struct kvm_one_reg pc = {.id = pc_id, .addr = (uint64_t)&entry_addr};
     ret = ioctl_exit_on_error(vcpufd, KVM_SET_ONE_REG, "KVM_SET_ONE_REG", &pc);
     if (ret < 0)
