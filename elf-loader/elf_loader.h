@@ -1,7 +1,7 @@
 #ifndef OPTEE_CLIENT_KVM_ELF_LOADER_H
 #define OPTEE_CLIENT_KVM_ELF_LOADER_H
 
-#include <cstdint>
+#include <stdint.h>
 
 /**
  * Opens an ELF file for loading. This must be called before any other function.

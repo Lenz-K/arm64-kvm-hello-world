@@ -1,9 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <unistd.h>
 
 #include "elf_loader.h"
 
@@ -76,7 +72,6 @@ void parse_program_header(uint64_t phoff, uint16_t phentsize) {
     vaddr = (uint64_t *) malloc(p_hdr_n * sizeof(uint64_t));
     filesz = (size_t *) malloc(p_hdr_n * sizeof(size_t));
     memsz = (size_t *) malloc(p_hdr_n * sizeof(size_t));
-    code_blocks = (uint32_t **) malloc(p_hdr_n * sizeof(uint32_t *));
     
     for (int i = 0; i < p_hdr_n; i++) {
         to(phoff + i * phentsize);
@@ -106,6 +101,11 @@ void parse_program_header(uint64_t phoff, uint16_t phentsize) {
             read(&p_memsz, sizeof(p_memsz), 1);
             memsz[i] = p_memsz;
         }
+    }
+
+    code_blocks = (uint32_t **) malloc(p_hdr_n * sizeof(uint32_t *));
+    for (int i = 0; i < p_hdr_n; i++) {
+        code_blocks[i] = (uint32_t *) malloc(memsz[i]);
     }
 }
 

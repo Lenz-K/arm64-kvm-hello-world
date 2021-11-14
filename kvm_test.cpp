@@ -264,7 +264,6 @@ int main() {
     check_vm_extension(KVM_CAP_USER_MEMORY, "KVM_CAP_USER_MEMORY");
 
     /* ROM Memory */
-    
     memory_mappings[0].guest_phys_addr = 0x0;
     memory_mappings[0].memory_size = MEMORY_BLOCK_SIZE;
     mem = allocate_memory_to_vm(memory_mappings[0].memory_size, memory_mappings[0].guest_phys_addr);
