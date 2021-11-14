@@ -38,26 +38,32 @@ int section = -1;
 int has_next = 0;
 
 /**
- * Fast forward in the ELF file to the specified absolut offset.
- *
- * @param offset The offset to go to.
- */
-void to(int offset) {
-    int forward = offset - byte_index;
-    uint8_t byte[forward];
-    fread(byte, sizeof(byte[0]), forward, fp);
-    byte_index = offset;
-}
-
-/**
  * Read from the ELF file.
  * This keeps the current byte_index up to date.
  *
- * @param offset The offset to go to.
+ * @param mem The pointer where to store the read bytes
+ * @param size The size of the blocks to read
+ * @param n The number of blocks to read
  */
-void read(void *mem, size_t size, int n_b) {
-    byte_index += size * n_b;
-    fread(mem, size, n_b, fp);
+void read(void *mem, size_t size, int n) {
+    int ret = fread(mem, size, n, fp);
+    int read_n = ret;
+    while (read_n < n && ret > 0) {
+        ret = fread(mem, size, n, fp);
+        read_n += ret;
+    }
+    byte_index += read_n * size;
+}
+
+/**
+ * Fast forward in the ELF file to the specified absolut offset.
+ *
+ * @param off The offset to go to.
+ */
+void to(int off) {
+    int forward = off - byte_index;
+    uint8_t byte[forward];
+    read(byte, sizeof(byte[0]), forward);
 }
 
 /**
