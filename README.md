@@ -1,6 +1,9 @@
 # About
 
-All code is compiled and tested on a Cortex-A72 (ARMv8-A) processor running Ubuntu 21.04 using GNU Make 4.3.
+All code was compiled and tested on a Cortex-A72 (ARMv8-A) processor running
+- Ubuntu 21.04 using GNU Make 4.3. (64 bit)
+- Ubuntu 23.10 (64 bit)
+- Raspberry Pi OS (October 10th 2023 Release) (64 bit)
 
 
 # Contents
@@ -9,7 +12,8 @@ All code is compiled and tested on a Cortex-A72 (ARMv8-A) processor running Ubun
 
 The folder `bare-metal-aarch64-qemu` contains a bare metal AArch64 Assembly program that outputs "Hello World!\n".
 It is an adaption of [this](https://github.com/freedomtan/aarch64-bare-metal-qemu) repository.   
-`hello_world.elf` can be tested with QEMU. On a system with an AArch64 processor run:
+`hello_world.elf` can be tested with QEMU.
+On a system with an AArch64 processor and `qemu-system-aarch64` installed run:
 ```
 qemu-system-aarch64 -M virt -cpu host -enable-kvm -nographic -kernel hello_world.elf
 ```
