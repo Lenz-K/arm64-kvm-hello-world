@@ -3,6 +3,7 @@
 #include <linux/kvm.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <cstddef>
 #include <cstring>
 #include <sys/mman.h>
 #include <stdarg.h>
