@@ -11,7 +11,7 @@
 
 #define MAX_VM_RUNS 20
 #define N_MEMORY_MAPPINGS 2
-#define MEMORY_BLOCK_SIZE 0x1000
+#define MEMORY_BLOCK_SIZE 0x8000
 
 using namespace std;
 
@@ -281,9 +281,9 @@ int main() {
         return ret;
 
     /* Heap Memory */
-    mem = allocate_memory_to_vm(MEMORY_BLOCK_SIZE, 0x04010000);
+    mem = allocate_memory_to_vm(MEMORY_BLOCK_SIZE * 2, 0x04010000);
     /* Stack Memory */
-    mem = allocate_memory_to_vm(MEMORY_BLOCK_SIZE, 0x0401F000);
+    // mem = allocate_memory_to_vm(MEMORY_BLOCK_SIZE, 0x04020000);
 
     /* MMIO Memory */
     check_vm_extension(KVM_CAP_READONLY_MEM, "KVM_CAP_READONLY_MEM"); // This will cause a write to 0x10000000, to result in a KVM_EXIT_MMIO.
